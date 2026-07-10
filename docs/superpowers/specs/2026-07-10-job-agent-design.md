@@ -1,357 +1,357 @@
-# Student Job Search Agent Design
+# 学生求职 Agent 设计文档
 
-## Summary
+## 概要
 
-Build a local-first job search agent for students applying to internships and campus recruiting roles. The first version combines a structured workbench with an agent chat panel. It helps users maintain a reusable candidate profile, import job descriptions manually, analyze roles, generate tailored resumes, and track applications.
+构建一个面向学生校招和实习投递的本地优先求职 Agent。第一版采用“结构化工作台 + Agent 对话面板”的组合形态，帮助用户维护可复用的应聘者画像、手动导入岗位 JD、分析岗位、生成针对岗位的简历，并追踪投递状态。
 
-The first version does not implement automatic job search, automatic application submission, cloud sync, full interview simulation, or offer comparison. These capabilities should remain future modules with clear data boundaries.
+第一版不实现自动岗位检索、自动投递、云端同步、完整面试模拟和 offer 对比。这些能力作为后续模块保留清晰的数据边界。
 
-## Target User
+## 目标用户
 
-The primary user is an individual student preparing for internships or campus recruiting. The product should optimize for privacy, low setup cost, repeatable resume tailoring, and long-term accumulation of experience facts.
+主要用户是正在准备实习或校招的个人学生。产品优先考虑隐私、低配置成本、可重复的简历适配，以及长期沉淀经历事实。
 
-## Scope
+## 范围
 
-In scope:
+第一版包含：
 
-- Local-first web workbench.
-- Student profile and experience repository.
-- Resume upload or paste for initial profile extraction.
-- Agent-guided profile completion.
-- Manual JD or job link text import.
-- Structured JD analysis.
-- Matching report between a job and the student profile.
-- Markdown resume generation with Word/PDF export.
-- Application checklist and status tracking.
-- App configuration for output paths, model settings, templates, and privacy options.
+- 本地优先的 Web 工作台。
+- 学生画像和经历库。
+- 通过上传或粘贴已有简历进行初始画像抽取。
+- Agent 引导式画像补全。
+- 手动导入 JD 或岗位链接文本。
+- 结构化 JD 分析。
+- 岗位与学生画像之间的匹配报告。
+- Markdown 简历生成，并支持 Word/PDF 导出。
+- 投递清单和状态追踪。
+- 应用配置，包括输出路径、模型配置、模板和隐私设置。
 
-Out of scope for the first version:
+第一版不包含：
 
-- Automatic job crawling or search across recruiting sites.
-- Automatic application submission.
-- Cloud account system and synchronization.
-- Full interview simulation system.
-- Offer analysis and comparison.
+- 自动爬取或检索招聘网站岗位。
+- 自动提交投递。
+- 云端账号系统和同步。
+- 完整面试模拟系统。
+- offer 分析和对比。
 
-## Product Boundary
+## 产品边界
 
-The system manages two kinds of information:
+系统管理两类信息：
 
-- Facts: education, projects, internships, competitions, skills, constraints, and user-confirmed experience details.
-- Expressions: resume bullets, summaries, and tailored wording generated for a specific job.
+- 事实：教育背景、项目、实习、竞赛、技能、限制条件，以及用户确认过的经历细节。
+- 表达：针对某个岗位生成的简历 bullet、个人总结和措辞。
 
-The profile store owns facts. Resume versions own expressions. Agents may suggest expression changes, but they must not silently change facts. If a fact is missing or weak, the agent asks the user to confirm or supplement it.
+画像库负责保存事实。简历版本负责保存表达。Agent 可以建议修改表达，但不能悄悄修改事实。如果事实缺失或证据不足，Agent 必须向用户追问或请求确认。
 
-## Core Modules
+## 核心模块
 
-### Profile Store
+### 画像库
 
-Stores the long-term student profile:
+保存长期学生画像：
 
-- Basic student information.
-- Experiences across projects, internships, competitions, research, coursework, and student organizations.
-- Skill evidence linked to concrete experiences.
-- User preferences such as target roles, cities, language, and constraints.
+- 学生基础信息。
+- 项目、实习、竞赛、科研、课程设计、社团等经历。
+- 与具体经历关联的技能证据。
+- 目标岗位、目标城市、语言、求职限制等用户偏好。
 
-The profile store supports incremental updates. Users should not need to rebuild their profile for every job.
+画像库支持增量更新。用户不需要为每个岗位重新构建画像。
 
-### Experience Completion Agent
+### 经历补全 Agent
 
-Extracts initial profile data from an existing resume and guides the user to complete missing details. It asks for STAR-style details:
+从已有简历中抽取初始画像数据，并引导用户补全缺失细节。它按 STAR 结构追问：
 
-- Situation or background.
-- Task or responsibility.
-- Action taken by the student.
-- Result and measurable outcome.
+- 背景或情境。
+- 任务或职责。
+- 用户实际采取的行动。
+- 结果和可量化成果。
 
-It also checks whether a claim is suitable for public resume use and whether it has enough supporting evidence.
+它还会判断某个表述是否适合公开写入简历，以及是否有足够证据支撑。
 
-### JD Analysis Agent
+### JD 分析 Agent
 
-Consumes the imported JD text or pasted job content and creates a structured JDAnalysis. It extracts:
+消费用户导入的 JD 文本或岗位页面文本，生成结构化 `JDAnalysis`。它抽取：
 
-- Hard requirements.
-- Bonus requirements.
-- Keywords.
-- Responsibilities.
-- Capability dimensions.
-- Risk points.
-- Recommended emphasis for the resume.
+- 硬性要求。
+- 加分项。
+- 关键词。
+- 岗位职责。
+- 能力维度。
+- 风险点。
+- 简历应重点突出的内容。
 
-JobPosting keeps the original JD text for traceability, but downstream resume generation does not read the raw JD text.
+`JobPosting` 保留原始 JD 文本用于溯源，但后续简历生成不读取原始 JD 文本。
 
-### Matching and Selection Agent
+### 匹配与选材 Agent
 
-Consumes JDAnalysis, Experience, and SkillEvidence to create a MatchReport. It selects the most relevant experiences and explains:
+消费 `JDAnalysis`、`Experience` 和 `SkillEvidence`，生成 `MatchReport`。它选择最相关的经历，并解释：
 
-- Why each experience is selected.
-- Which JDAnalysis requirement it supports.
-- Which facts are weak or missing.
-- What resume strategy is recommended.
+- 为什么选择这些经历。
+- 分别支撑 `JDAnalysis` 中的哪条要求。
+- 哪些事实较弱或缺失。
+- 推荐采用怎样的简历策略。
 
-### Resume Generation Agent
+### 简历生成 Agent
 
-Consumes JDAnalysis and MatchReport to create a ResumeVersion. It does not consume raw JD text.
+消费 `JDAnalysis` 和 `MatchReport` 生成 `ResumeVersion`。它不消费原始 JD 文本。
 
-The generated resume is first stored as Markdown. The agent also records generation rationale, source experience IDs, and warnings where wording may be too strong for the known facts.
+生成的简历先保存为 Markdown。Agent 同时记录生成理由、来源经历 ID，以及某些措辞可能强于已知事实时的风险提醒。
 
-### Application Management
+### 投递管理
 
-Tracks applications without submitting them automatically. It records the target job, resume version used, status, timeline, interview or written-test notes, results, and retrospective notes.
+只追踪投递，不自动提交投递。它记录目标岗位、使用的简历版本、投递状态、时间线、笔试或面试记录、结果和复盘。
 
-## Data Model
+## 数据模型
 
-The first version uses local SQLite for structured records. File attachments and exported documents live in local folders configured by AppConfig.
+第一版使用本地 SQLite 保存结构化记录。附件和导出的文件放在 `AppConfig` 配置的本地目录中。
 
 ### StudentProfile
 
-Stores student-level information:
+保存学生级别信息：
 
-- Name.
-- School.
-- Major.
-- Degree.
-- Graduation date.
-- Target cities.
-- Target role directions.
-- Preferences and constraints.
-- Language ability.
+- 姓名。
+- 学校。
+- 专业。
+- 学历。
+- 毕业时间。
+- 目标城市。
+- 目标岗位方向。
+- 偏好和限制。
+- 语言能力。
 
 ### Experience
 
-Represents one project, internship, competition, research item, coursework item, or student organization experience.
+表示一条项目、实习、竞赛、科研、课程设计或社团经历。
 
-Important fields:
+重要字段：
 
-- Type.
-- Name.
-- Start and end date.
-- Organization or company.
-- Role.
-- Background.
-- Task.
-- Action.
-- Result.
-- Metrics.
-- Skill tags.
-- Supporting materials.
-- Confidence level.
-- Public resume suitability.
-- Source.
-- Created and updated timestamps.
+- 类型。
+- 名称。
+- 开始和结束时间。
+- 组织或公司。
+- 角色。
+- 背景。
+- 任务。
+- 行动。
+- 结果。
+- 量化指标。
+- 技能标签。
+- 证明材料。
+- 可信度。
+- 是否适合公开写入简历。
+- 来源。
+- 创建和更新时间。
 
 ### SkillEvidence
 
-Links a skill to concrete evidence instead of storing skills as isolated labels.
+把技能与具体证据关联起来，而不是只保存孤立技能标签。
 
-Important fields:
+重要字段：
 
-- Skill name.
-- Proficiency.
-- Last used date.
-- Related Experience ID.
-- Evidence summary.
-- Output or achievement.
+- 技能名称。
+- 熟练度。
+- 最近使用时间。
+- 关联的 `Experience` ID。
+- 证据摘要。
+- 产出或成果。
 
 ### JobPosting
 
-Stores a job opportunity.
+保存一个岗位机会。
 
-Important fields:
+重要字段：
 
-- Company.
-- Job title.
-- Location.
-- Source URL.
-- Raw JD text.
-- Published date.
-- Deadline.
-- Job type.
-- Status.
-- Notes.
-- JDAnalysis ID.
+- 公司。
+- 岗位名称。
+- 地点。
+- 来源链接。
+- 原始 JD 文本。
+- 发布时间。
+- 截止时间。
+- 岗位类型。
+- 状态。
+- 备注。
+- `JDAnalysis` ID。
 
-JobPosting may exist before JDAnalysis is generated. After analysis, `jd_analysis_id` is backfilled.
+`JobPosting` 可以先于 `JDAnalysis` 存在。完成分析后，系统回填 `jd_analysis_id`。
 
 ### JDAnalysis
 
-Stores the structured analysis of a job.
+保存某个岗位的结构化分析。
 
-Important fields:
+重要字段：
 
-- Hard requirements.
-- Bonus requirements.
-- Keywords.
-- Responsibilities.
-- Capability dimensions.
-- Risk points.
-- Recommended resume emphasis.
-- Completeness status.
+- 硬性要求。
+- 加分项。
+- 关键词。
+- 岗位职责。
+- 能力维度。
+- 风险点。
+- 推荐简历突出内容。
+- 完整性状态。
 
-JDAnalysis is the only job requirement input consumed by matching and resume generation.
+`JDAnalysis` 是匹配和简历生成唯一消费的岗位要求输入。
 
 ### MatchReport
 
-Stores the match between one job and the student profile.
+保存某个岗位与学生画像之间的匹配结果。
 
-Important fields:
+重要字段：
 
-- JobPosting ID.
-- JDAnalysis ID.
-- Overall match score.
-- Selected Experience IDs.
-- Matched requirements.
-- Gaps.
-- Risks.
-- Suggested follow-up questions.
-- Resume strategy.
+- `JobPosting` ID。
+- `JDAnalysis` ID。
+- 总体匹配分。
+- 被选中的 `Experience` ID。
+- 已匹配要求。
+- 缺口。
+- 风险。
+- 建议追问的问题。
+- 简历策略。
 
 ### ResumeVersion
 
-Stores one tailored resume version.
+保存一个针对岗位生成的简历版本。
 
-Important fields:
+重要字段：
 
-- JobPosting ID.
-- JDAnalysis ID.
-- Markdown content.
-- Used Experience IDs.
-- Generation rationale.
-- Manual edit history.
-- Created and updated timestamps.
+- `JobPosting` ID。
+- `JDAnalysis` ID。
+- Markdown 内容。
+- 使用的 `Experience` ID。
+- 生成理由。
+- 人工修改记录。
+- 创建和更新时间。
 
-ResumeVersion does not store exported Word or PDF paths. Export paths are runtime configuration and belong in AppConfig.
+`ResumeVersion` 不保存导出的 Word 或 PDF 路径。导出路径属于运行时配置，应保存在 `AppConfig` 中。
 
 ### ApplicationRecord
 
-Tracks an application.
+追踪一次投递。
 
-Important fields:
+重要字段：
 
-- JobPosting ID.
-- ResumeVersion ID.
-- Application status.
-- Application date.
-- Written-test notes.
-- Interview notes.
-- Result.
-- Retrospective notes.
+- `JobPosting` ID。
+- `ResumeVersion` ID。
+- 投递状态。
+- 投递时间。
+- 笔试记录。
+- 面试记录。
+- 结果。
+- 复盘记录。
 
-The record links both the job and the resume version so users can always see which resume was used for which application.
+该记录同时关联岗位和简历版本，方便用户回看“这个岗位当时用了哪一版简历”。
 
 ### AppConfig
 
-Stores application-level settings:
+保存应用级设置：
 
-- Default output path.
-- Resume template.
-- Preferred export formats.
-- Model provider and model configuration.
-- Language preference.
-- Data directory.
-- Privacy and future sync settings.
+- 默认输出路径。
+- 简历模板。
+- 偏好的导出格式。
+- 模型供应商和模型配置。
+- 语言偏好。
+- 数据目录。
+- 隐私和未来同步设置。
 
-## Main Workbench Layout
+## 主工作台布局
 
-The first version uses a workbench plus agent layout:
+第一版采用工作台加 Agent 的布局：
 
-- Left navigation: Jobs, Profile, Resume Versions, Applications, Settings.
-- Job list: imported jobs, filters, status, match score.
-- Main detail area: JD analysis, match report, Markdown resume preview, export actions.
-- Right agent panel: context-aware chat for analysis, explanation, profile completion, and resume generation.
+- 左侧导航：岗位、画像库、简历版本、投递清单、配置。
+- 岗位列表：已导入岗位、筛选、状态、匹配分。
+- 中间主区域：JD 分析、匹配报告、Markdown 简历预览、导出动作。
+- 右侧 Agent 面板：根据当前上下文进行分析、解释、画像补全和简历生成。
 
-## Profile Page Interaction
+## 画像库页面交互
 
-The profile page uses an experience-centric layout:
+画像库页面采用以经历为中心的布局：
 
-- Left panel lists all stored experiences.
-- The list supports filtering by type, time, completion status, and tags.
-- A `+` button on the left creates a new experience.
-- Clicking an experience opens its details on the right.
-- The right side shows structured fields for the selected experience.
-- The right side also includes an agent chat box bound to the selected Experience.
+- 左侧面板列出所有已存经历。
+- 列表支持按类型、时间、补全状态和标签筛选。
+- 左侧有 `+` 按钮用于新增经历。
+- 点击某条经历后，右侧打开该经历详情。
+- 右侧显示当前经历的结构化字段。
+- 右侧同时包含一个绑定当前 `Experience` 的 Agent 对话框。
 
-When adding a new experience, the system creates a draft Experience first. The user can fill fields directly, or the agent can ask guided questions. Confirmed content is saved to Experience and may update SkillEvidence.
+新增经历时，系统先创建一条草稿 `Experience`。用户可以直接填写字段，也可以让 Agent 通过引导式问题补全。确认后的内容写入 `Experience`，并可能更新 `SkillEvidence`。
 
-The profile agent's default context is the currently selected Experience, not global free chat.
+画像库 Agent 的默认上下文是当前选中的 `Experience`，不是全局自由聊天。
 
-## Main User Flows
+## 主要用户流程
 
-### First-Time Profile Setup
+### 首次画像建立
 
-1. User uploads or pastes an existing resume.
-2. The system extracts candidate facts into a pending state.
-3. The agent asks follow-up questions for missing or weak facts.
-4. The user confirms facts.
-5. Confirmed facts are written into StudentProfile, Experience, and SkillEvidence.
+1. 用户上传或粘贴已有简历。
+2. 系统把候选事实抽取到待确认状态。
+3. Agent 针对缺失或较弱事实进行追问。
+4. 用户确认事实。
+5. 已确认事实写入 `StudentProfile`、`Experience` 和 `SkillEvidence`。
 
-### Job Import and JD Analysis
+### 岗位导入与 JD 分析
 
-1. User pastes JD text or job link text.
-2. The system creates a JobPosting.
-3. The JD Analysis Agent generates JDAnalysis.
-4. JobPosting is updated with the JDAnalysis ID.
-5. If the imported content is incomplete, JDAnalysis is marked incomplete and the agent asks for more detail.
+1. 用户粘贴 JD 文本或岗位链接文本。
+2. 系统创建 `JobPosting`。
+3. JD 分析 Agent 生成 `JDAnalysis`。
+4. `JobPosting` 回填 `JDAnalysis` ID。
+5. 如果导入内容不完整，`JDAnalysis` 标记为不完整，Agent 请求用户补充信息。
 
-### Matching and Resume Generation
+### 匹配与简历生成
 
-1. User selects a JobPosting.
-2. The system loads the linked JDAnalysis.
-3. The matching agent compares JDAnalysis with Experience and SkillEvidence.
-4. The system creates a MatchReport.
-5. If required facts are missing, the agent asks the user to supplement the relevant Experience.
-6. After the user confirms the strategy, the resume agent creates ResumeVersion Markdown.
-7. The user edits and approves the Markdown.
-8. The system exports Word/PDF using AppConfig settings.
+1. 用户选择一个 `JobPosting`。
+2. 系统加载关联的 `JDAnalysis`。
+3. 匹配 Agent 用 `JDAnalysis` 与 `Experience`、`SkillEvidence` 对比。
+4. 系统创建 `MatchReport`。
+5. 如果关键事实缺失，Agent 请求用户补充相关 `Experience`。
+6. 用户确认策略后，简历生成 Agent 创建 `ResumeVersion` Markdown。
+7. 用户编辑并确认 Markdown。
+8. 系统根据 `AppConfig` 设置导出 Word/PDF。
 
-### Application Tracking
+### 投递追踪
 
-1. User adds a job to the application checklist.
-2. The system creates ApplicationRecord linked to JobPosting and ResumeVersion.
-3. User updates status over time.
-4. Written-test, interview, result, and retrospective notes are recorded.
-5. Retrospective insights may produce improvement suggestions, but they do not silently mutate Experience facts.
+1. 用户把岗位加入投递清单。
+2. 系统创建 `ApplicationRecord`，关联 `JobPosting` 和 `ResumeVersion`。
+3. 用户随时间更新状态。
+4. 笔试、面试、结果和复盘记录被保存。
+5. 复盘洞察可以生成提升建议，但不能悄悄修改 `Experience` 事实。
 
-## Resume Generation Rules
+## 简历生成规则
 
-- Resume generation reads JDAnalysis, MatchReport, Experience, and SkillEvidence.
-- Resume generation does not read raw JD text from JobPosting.
-- Every generated bullet should be traceable to one or more Experience records.
-- Strong claims require supporting facts or metrics.
-- If evidence is weak, the agent either asks for confirmation or uses softer wording.
-- Generated content must preserve the distinction between user-confirmed facts and agent-written expression.
-- Exporting Word/PDF is a separate action from creating ResumeVersion.
+- 简历生成读取 `JDAnalysis`、`MatchReport`、`Experience` 和 `SkillEvidence`。
+- 简历生成不读取 `JobPosting` 中的原始 JD 文本。
+- 每条生成的 bullet 都应能追溯到一个或多个 `Experience`。
+- 强表述需要有事实或量化指标支撑。
+- 如果证据较弱，Agent 要么请求确认，要么使用更保守的措辞。
+- 生成内容必须保留“用户确认事实”和“Agent 生成表达”的区别。
+- 导出 Word/PDF 是独立于创建 `ResumeVersion` 的动作。
 
-## Error Handling
+## 错误处理
 
-- Incomplete JD: create JobPosting and incomplete JDAnalysis, then ask the user for more content.
-- Missing experience facts: ask the user to supplement the selected Experience before producing strong resume wording.
-- Skill without evidence: allow skill listing, but avoid strong achievement bullets based only on the skill label.
-- Possible overstatement: mark the risk and ask the user to confirm or downgrade the wording.
-- Export failure: keep the Markdown ResumeVersion and show output path, template, or permission guidance.
-- Model failure: keep the current task as retryable and preserve all existing job, profile, match, and resume records.
+- JD 不完整：创建 `JobPosting` 和不完整的 `JDAnalysis`，然后请求用户补充内容。
+- 经历事实缺失：在生成强简历表述前，请求用户补充当前相关 `Experience`。
+- 技能没有证据：允许放入技能栏，但不能只基于技能标签生成强成果型 bullet。
+- 可能过度包装：标记风险，并请求用户确认或降低表述强度。
+- 导出失败：保留 Markdown `ResumeVersion`，并提示检查输出路径、模板或权限。
+- 模型调用失败：保留当前任务为可重试状态，不丢失已有岗位、画像、匹配和简历记录。
 
-## Testing Strategy
+## 测试策略
 
-The first implementation should include focused tests for:
+第一版实现应包含以下重点测试：
 
-- Creating and migrating the nine core tables.
-- Enforcing key foreign-key relationships among JobPosting, JDAnalysis, ResumeVersion, and ApplicationRecord.
-- Incremental profile updates without rebuilding the profile from scratch.
-- Resume parsing into pending facts before confirmed writes.
-- JDAnalysis creation from complete, short, and messy JD inputs.
-- Matching requirements from JDAnalysis to Experience and SkillEvidence.
-- Resume generation without reading raw JD text.
-- Resume bullets retaining source Experience references.
-- Markdown export to Word/PDF using AppConfig output settings.
-- Profile page interactions: list experiences, create via `+`, select, edit details, and use the selected-experience agent.
+- 创建和迁移九张核心表。
+- 校验 `JobPosting`、`JDAnalysis`、`ResumeVersion` 和 `ApplicationRecord` 之间的关键外键关系。
+- 支持画像增量更新，而不是每次从零重建画像。
+- 简历解析先进入待确认事实状态，再写入正式事实库。
+- 能从完整、过短和格式混乱的 JD 中创建合理的 `JDAnalysis` 状态。
+- 能把 `JDAnalysis` 中的要求匹配到 `Experience` 和 `SkillEvidence`。
+- 简历生成不会读取原始 JD 文本。
+- 简历 bullet 保留来源 `Experience` 引用。
+- Markdown 能根据 `AppConfig` 的输出配置导出 Word/PDF。
+- 画像库页面能完成列出经历、通过 `+` 新增、选择经历、编辑详情、使用当前经历 Agent 的流程。
 
-## Future Extension Boundaries
+## 未来扩展边界
 
-Automatic job search can later write into JobPosting, but it should not bypass JDAnalysis.
+自动岗位检索后续可以写入 `JobPosting`，但不能绕过 `JDAnalysis`。
 
-Semi-automatic application assistance can later consume ApplicationRecord, JobPosting, ResumeVersion, and AppConfig, but final submission should remain user-confirmed.
+半自动投递助手后续可以消费 `ApplicationRecord`、`JobPosting`、`ResumeVersion` 和 `AppConfig`，但最终提交仍应由用户确认。
 
-Cloud sync can later synchronize the SQLite-backed entities and file attachments, but local-first operation remains the baseline.
+云同步后续可以同步 SQLite 实体和文件附件，但本地优先仍是基础能力。
 
-Interview practice and offer analysis can later attach to ApplicationRecord and JobPosting without changing the profile/resume generation core.
+面试训练和 offer 分析后续可以挂载到 `ApplicationRecord` 和 `JobPosting`，不应改变画像与简历生成核心链路。
