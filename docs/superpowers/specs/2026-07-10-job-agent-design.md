@@ -98,7 +98,7 @@
 
 ### 投递管理
 
-只追踪投递，不自动提交投递。它记录目标岗位、使用的简历版本、投递状态、时间线、笔试或面试记录、结果和复盘。
+只追踪投递，不自动提交投递。它记录目标岗位、使用的简历版本、投递状态、时间线。
 
 ## 数据模型
 
@@ -121,22 +121,19 @@
 
 重要字段：
 
-- `StudentProfile` ID。
 - 目标城市。
 - 目标岗位方向。
 - 目标行业。
+- 不接受的城市、
+- 不接受的行业
+- 不接受的岗位类型。
 - 期望工作类型，例如实习、校招、远程或线下。
 - 薪资或补贴期望。
-- 不接受的城市、行业或岗位类型。
-- 投递节奏偏好。
-- 当前是否启用。
-- 创建和更新时间。
-
-偏好可能随求职阶段变化，因此可以保留多条记录，但同一时间只有一条默认启用偏好。
+目标城市、目标岗位方向、目标行业、期望工作类型、不接受的城市、不接受的行业、不接受的岗位类型可以有多个。
 
 ### Experience
 
-表示一条项目、实习、竞赛、科研、课程设计或社团经历。
+表示一条项目、实习、竞赛、科研、课程设计或经历。
 
 重要字段：
 
@@ -146,16 +143,9 @@
 - 组织或公司。
 - 角色。
 - 背景。
-- 任务。
-- 行动。
+- 任务/内容。
 - 结果。
 - 量化指标。
-- 技能标签。
-- 证明材料。
-- 可信度。
-- 是否适合公开写入简历。
-- 来源。
-- 创建和更新时间。
 
 ### SkillEvidence
 
@@ -165,10 +155,10 @@
 
 - 技能名称。
 - 熟练度。
-- 最近使用时间。
 - 关联的 `Experience` ID。
 - 证据摘要。
 - 产出或成果。
+关联的 `Experience` ID可以有多个。
 
 ### JobPosting
 
@@ -205,23 +195,22 @@
 - 推荐简历突出内容。
 - 完整性状态。
 
-`JDAnalysis` 是匹配和简历生成唯一消费的岗位要求输入。
-
 ### MatchReport
 
 保存某个岗位与学生画像之间的匹配结果。
 
 重要字段：
 
-- `JobPosting` ID。
 - `JDAnalysis` ID。
 - 总体匹配分。
 - 被选中的 `Experience` ID。
+- 被选中的 `SkillEvidence` ID。
 - 已匹配要求。
 - 缺口。
 - 风险。
 - 建议追问的问题。
 - 简历策略。
+被选中的 `Experience` ID、`SkillEvidence` ID 可以有多个
 
 ### ResumeVersion
 
@@ -229,10 +218,10 @@
 
 重要字段：
 
-- `JobPosting` ID。
-- `JDAnalysis` ID。
+- `MatchReport` ID。
 - Markdown 内容。
 - 使用的 `Experience` ID。
+- 使用的 `SkillEvidence` ID。
 - 生成理由。
 - 人工修改记录。
 - 创建和更新时间。
@@ -249,10 +238,7 @@
 - `ResumeVersion` ID。
 - 投递状态。
 - 投递时间。
-- 笔试记录。
-- 面试记录。
 - 结果。
-- 复盘记录。
 
 该记录同时关联岗位和简历版本，方便用户回看“这个岗位当时用了哪一版简历”。
 
@@ -326,24 +312,21 @@
 1. 用户把岗位加入投递清单。
 2. 系统创建 `ApplicationRecord`，关联 `JobPosting` 和 `ResumeVersion`。
 3. 用户随时间更新状态。
-4. 笔试、面试、结果和复盘记录被保存。
-5. 复盘洞察可以生成提升建议，但不能悄悄修改 `Experience` 事实。
 
 ## 简历生成规则
 
-- 简历生成读取 `JDAnalysis`、`MatchReport`、`Experience` 和 `SkillEvidence`。
-- 简历生成不读取 `JobPosting` 中的原始 JD 文本。
-- 每条生成的 bullet 都应能追溯到一个或多个 `Experience`。
+- 简历生成读取 `MatchReport`、`Experience` 和 `SkillEvidence`。
+- 简历生成不读取 `JobPosting`、`JDAnalysis`。
+- 每条生成的 bullet 都应能追溯到一个或多个 `Experience` 或 `SkillEvidence`，但不在简历里显示来源，可以在别处说明。
 - 强表述需要有事实或量化指标支撑。
 - 如果证据较弱，Agent 要么请求确认，要么使用更保守的措辞。
-- 生成内容必须保留“用户确认事实”和“Agent 生成表达”的区别。
 - 导出 Word/PDF 是独立于创建 `ResumeVersion` 的动作。
 
 ## 错误处理
 
 - JD 不完整：创建 `JobPosting` 和不完整的 `JDAnalysis`，然后请求用户补充内容。
 - 经历事实缺失：在生成强简历表述前，请求用户补充当前相关 `Experience`。
-- 技能没有证据：允许放入技能栏，但不能只基于技能标签生成强成果型 bullet。
+- 技能没有证据：允许放入技能栏，但生成的成果型 bullet仅可放在简历的特长部分。
 - 可能过度包装：标记风险，并请求用户确认或降低表述强度。
 - 导出失败：保留 Markdown `ResumeVersion`，并提示检查输出路径、模板或权限。
 - 模型调用失败：保留当前任务为可重试状态，不丢失已有岗位、画像、匹配和简历记录。
@@ -353,14 +336,13 @@
 第一版实现应包含以下重点测试：
 
 - 创建和迁移十张核心表。
-- 校验 `StudentPreference` 与 `StudentProfile` 的关联关系。
 - 校验 `JobPosting`、`JDAnalysis`、`ResumeVersion` 和 `ApplicationRecord` 之间的关键外键关系。
 - 支持画像增量更新，而不是每次从零重建画像。
 - 简历解析先进入待确认事实状态，再写入正式事实库。
 - 能从完整、过短和格式混乱的 JD 中创建合理的 `JDAnalysis` 状态。
 - 能把 `JDAnalysis` 中的要求匹配到 `Experience` 和 `SkillEvidence`。
-- 简历生成不会读取原始 JD 文本。
-- 简历 bullet 保留来源 `Experience` 引用。
+- 简历生成不会读取`JobPosting`和`JDAnalysis`。
+- 简历 bullet 可以追溯来源 `Experience` 或 `SkillEvidence`。
 - Markdown 能根据 `AppConfig` 的输出配置导出 Word/PDF。
 - 画像库页面能完成列出经历、通过 `+` 新增、选择经历、编辑详情、使用当前经历 Agent 的流程。
 
