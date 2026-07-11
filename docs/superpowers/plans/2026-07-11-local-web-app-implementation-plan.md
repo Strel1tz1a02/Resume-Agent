@@ -133,8 +133,9 @@
 - `POST /jobs`
 - `GET /jobs/{id}`
 - `PUT /jobs/{id}`
-- `POST /jobs/{id}/analyze`
-- `GET /jd-analyses/{id}`
+- `POST /jobs/{id}/jd-analyses`
+- `GET /jobs/{id}/jd-analyses`
+- `GET /jd-analyses/{analysis_id}`
 
 ### 匹配与简历 API
 
