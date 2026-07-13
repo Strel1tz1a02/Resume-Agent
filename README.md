@@ -1,11 +1,13 @@
 # 学生求职 Agent
 
-本项目是一个本地运行的学生求职 Agent Web App。第一阶段目标是搭建最小可运行骨架：
+本项目是一个本地运行的学生求职 Agent Web App。当前已完成本地 Web App 骨架和基础数据层：
 
 - 后端 FastAPI 服务。
 - 前端 React/Vite 工作台壳。
 - 后端 `/health` 健康检查。
 - 前端左侧导航、主工作区、右侧 Agent 面板占位。
+- SQLite + SQLAlchemy + Alembic 本地数据库。
+- 学生画像、求职偏好、经历库、技能证据的基础 CRUD API。
 
 ## 目录
 
@@ -21,6 +23,16 @@ docs/
 ## 后端本地运行
 
 后端使用 Anaconda 环境 `resume-agent`。
+
+首次运行或数据库结构更新后，先执行迁移：
+
+```powershell
+conda activate resume-agent
+cd apps/api
+python -m alembic -c alembic.ini upgrade head
+```
+
+本地数据库默认写入项目根目录下的 `data/app.db`。
 
 ```powershell
 conda activate resume-agent
@@ -45,8 +57,24 @@ curl http://127.0.0.1:8000/health
 ```powershell
 conda activate resume-agent
 cd apps/api
-python -m pytest tests/test_health.py -q
+python -m pytest -q
 ```
+
+当前 API：
+
+- `GET /health`
+- `GET /profiles/current`
+- `PUT /profiles/current`
+- `GET /preferences/current`
+- `PUT /preferences/current`
+- `GET /experiences`
+- `POST /experiences`
+- `GET /experiences/{experience_id}`
+- `PUT /experiences/{experience_id}`
+- `DELETE /experiences/{experience_id}`
+- `GET /skill-evidences`
+- `POST /skill-evidences`
+- `PUT /skill-evidences/{skill_evidence_id}`
 
 ## 前端本地运行
 
