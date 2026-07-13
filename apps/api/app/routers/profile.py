@@ -25,7 +25,7 @@ router = APIRouter()
 # 使用 Depends(get_db)：FastAPI 替你可靠地管理整个生成器生命周期。
 
 # response_model 作用：
-# 相互发送的 JSON 必须符合 response_model 的定义，否则报错。
+# 后端返回的 JSON 必须符合 response_model 的定义，否则报错。
 
 # payload.model_dump(exclude_unset=True)：
 # exclude_unset=True 会排除没有传入的字段，避免把原有的 name、role 等字段覆盖成 None
