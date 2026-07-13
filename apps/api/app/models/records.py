@@ -6,6 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.config import DEFAULT_USER_ID
 from app.db.base import Base
 
+# 定义数据在数据库里怎么存，每个类对应一张数据库表
+# 两个 Mixin 用于消除重复，所有业务表继承它们，因此自动拥有用户归属和创建、更新时间
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(

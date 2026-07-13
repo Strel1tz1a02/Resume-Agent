@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-
+# 定义数据进出 API 时长什么样、是否合法。
 
 class StudentProfilePayload(BaseModel):
     name: str | None = None

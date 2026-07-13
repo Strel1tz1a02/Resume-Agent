@@ -20,9 +20,18 @@ from app.schemas.profile import (
 
 router = APIRouter()
 
+# Depends 作用：
+# 手动调用带 yield 的 get_db()：必须自己管理生成器的恢复或关闭。
+# 使用 Depends(get_db)：FastAPI 替你可靠地管理整个生成器生命周期。
+
+# response_model 作用：
+# 相互发送的 JSON 必须符合 response_model 的定义，否则报错。
+
+# payload.model_dump(exclude_unset=True)：
+# exclude_unset=True 会排除没有传入的字段，避免把原有的 name、role 等字段覆盖成 None
 
 def _first_for_user(db: Session, model: type) -> object | None:
-    return db.scalar(select(model).where(model.user_id == DEFAULT_USER_ID))
+    return db.scalar(select(model).where(model.user_id == DEFAULT_USER_ID)) # scalar：返回查询结果的第一行第一列的值，如果没有结果则返回 None。
 
 
 def _apply_updates(instance: object, values: dict) -> None:
