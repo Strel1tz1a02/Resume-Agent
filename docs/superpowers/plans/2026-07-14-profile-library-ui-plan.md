@@ -1,89 +1,89 @@
-# Profile Library UI Implementation Plan
+# 画像库 UI 实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给 agentic worker 的说明：** 执行本计划时需要使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，按任务逐步实现。步骤使用 checkbox（`- [ ]`）跟踪进度。
 
-**Goal:** Build the profile library UI so a student can load, select, create, and edit experiences from the local FastAPI backend.
+**目标：** 实现画像库 UI，让学生可以从本地 FastAPI 后端加载、选择、新增和编辑经历。
 
-**Architecture:** Keep this phase lightweight: the React app uses a small `fetch` wrapper and local component state instead of adding routing or query libraries. The backend API from phase 2 is reused without schema changes. The right Agent panel derives its placeholder suggestions from the currently selected experience.
+**架构：** 本阶段保持轻量：React 前端使用一个小型 `fetch` 封装和组件本地状态，不提前引入路由或请求缓存库。复用阶段二已有的后端 API，不修改数据库 schema。右侧 Agent 面板根据当前选中的经历生成占位追问建议。
 
-**Tech Stack:** React 18, Vite, TypeScript, Testing Library, Vitest, FastAPI, SQLAlchemy, SQLite.
+**技术栈：** React 18、Vite、TypeScript、Testing Library、Vitest、FastAPI、SQLAlchemy、SQLite。
 
-## Global Constraints
+## 全局约束
 
-- The app is local-first and targets student job seekers.
-- The profile library is the persistent fact store; it must not be rebuilt per job.
-- Resume generation later must use structured analysis and fact records, not raw JD text.
-- Keep the phase scoped to profile library UI; job, JD, matching, and resume generation remain later phases.
-- Use TDD: write the failing behavior test before production code.
+- 应用本地优先，目标用户是学生求职者。
+- 画像库是长期事实库，不能每个岗位都重新画像。
+- 后续简历生成必须使用结构化分析和事实记录，不能直接读取 JD 原文。
+- 本阶段范围只包含画像库 UI；岗位、JD、匹配和简历生成留到后续阶段。
+- 使用 TDD：先写失败的行为测试，再写生产代码。
 
 ---
 
-### Task 1: Profile Library Behavior Test
+### 任务 1：画像库行为测试
 
-**Files:**
-- Modify: `apps/web/src/App.test.tsx`
+**文件：**
+- 修改：`apps/web/src/App.test.tsx`
 
-**Interfaces:**
-- Consumes: Browser `fetch`.
-- Produces: A behavior contract for `GET /experiences`, `POST /experiences`, and `PUT /experiences/{id}` usage.
+**接口：**
+- 消费：浏览器 `fetch`。
+- 产出：对 `GET /experiences`、`POST /experiences`、`PUT /experiences/{id}` 的前端使用契约。
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **步骤 1：写失败测试**
 
-Replace the existing shell-only test with a test that mocks `fetch`, renders `App`, verifies the Chinese profile library layout, selects a loaded experience, creates a draft with the `+` button, edits fields, and saves through the expected API call.
+把原来的应用壳测试替换为画像库行为测试：mock `fetch`，渲染 `App`，验证中文画像库布局，选择已加载经历，通过 `+` 创建草稿，编辑字段，并通过预期 API 调用保存。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试并确认失败**
 
-Run: `pnpm test`
+运行：`pnpm test`
 
-Expected: FAIL because the current app does not render the profile library controls.
+预期：失败，因为当前应用还没有渲染画像库控件。
 
-### Task 2: API Client and Profile Library UI
+### 任务 2：API 客户端和画像库 UI
 
-**Files:**
-- Create: `apps/web/src/api/experiences.ts`
-- Replace: `apps/web/src/App.tsx`
-- Replace: `apps/web/src/styles/global.css`
+**文件：**
+- 新建：`apps/web/src/api/experiences.ts`
+- 替换：`apps/web/src/App.tsx`
+- 替换：`apps/web/src/styles/global.css`
 
-**Interfaces:**
-- `Experience` mirrors the backend response fields.
+**接口：**
+- `Experience` 与后端响应字段保持一致。
 - `listExperiences(): Promise<Experience[]>`
 - `createExperience(payload: ExperiencePayload): Promise<Experience>`
 - `updateExperience(id: number, payload: ExperiencePayload): Promise<Experience>`
 
-- [ ] **Step 1: Implement API helpers**
+- [ ] **步骤 1：实现 API helper**
 
-Create a small fetch client using `import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"`.
+创建一个小型 fetch 客户端，默认使用 `import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"`。
 
-- [ ] **Step 2: Implement the page**
+- [ ] **步骤 2：实现页面**
 
-Render the app shell with normal Chinese copy, a profile library nav item, an experience list, a plus button, a detail form, save button, skill evidence placeholder, and contextual Agent suggestions.
+渲染工作台外壳，使用正常中文文案；包含画像库导航项、经历列表、加号按钮、详情表单、保存按钮、技能证据占位区，以及随当前经历变化的 Agent 追问建议。
 
-- [ ] **Step 3: Run frontend test to verify it passes**
+- [ ] **步骤 3：运行前端测试并确认通过**
 
-Run: `pnpm test`
+运行：`pnpm test`
 
-Expected: PASS.
+预期：通过。
 
-### Task 3: Verification and Commit
+### 任务 3：验证和提交
 
-**Files:**
-- Modify: `README.md` if local running notes need updates.
+**文件：**
+- 如本地运行说明需要更新，则修改 `README.md`。
 
-- [ ] **Step 1: Run backend tests**
+- [ ] **步骤 1：运行后端测试**
 
-Run: `python -m pytest -q` in `apps/api`.
+在 `apps/api` 目录运行：`python -m pytest -q`
 
-Expected: all backend tests pass.
+预期：所有后端测试通过。
 
-- [ ] **Step 2: Run frontend build**
+- [ ] **步骤 2：运行前端构建**
 
-Run: `pnpm build` in `apps/web`.
+在 `apps/web` 目录运行：`pnpm build`
 
-Expected: TypeScript and Vite build pass.
+预期：TypeScript 和 Vite 构建通过。
 
-- [ ] **Step 3: Commit**
+- [ ] **步骤 3：提交**
 
-Run:
+运行：
 
 ```powershell
 git add docs/superpowers/plans/2026-07-14-profile-library-ui-plan.md apps/web/src
