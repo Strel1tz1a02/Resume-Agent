@@ -88,6 +88,7 @@ function getAgentQuestions(draft: DraftExperience | null): string[] {
     : ["这段经历的事实已经比较完整，可以继续补充技能证据。"];
 }
 
+// export 表示这个函数可以被其他文件导入
 export function App() {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
@@ -135,12 +136,12 @@ export function App() {
 
   function createDraft() {
     setSelectedId("new");
-    setDraft({ ...emptyExperience });
+    setDraft({ ...emptyExperience }); // 展开操作会创建一个新的对象，避免多个操作共享同一个对象引用
     setSaveMessage(null);
   }
 
   function updateDraft(field: keyof ExperiencePayload, value: string) {
-    setDraft((current) => (current ? { ...current, [field]: value } : current));
+    setDraft((current) => (current ? { ...current, [field]: value } : current)); // 先复制原对象的全部字段，再覆盖用户修改的那个字段。
     setSaveMessage(null);
   }
 
