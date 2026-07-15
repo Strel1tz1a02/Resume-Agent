@@ -152,7 +152,12 @@ describe("skill specialties page", () => {
     fireEvent.click((await screen.findAllByRole("button"))[2]);
 
     expect(await screen.findByText("Backend")).toBeInTheDocument();
-    expect(screen.getByText("Python backend with FastAPI RESTful API delivery")).toBeInTheDocument();
+    const description = screen.getByText("Python backend with FastAPI RESTful API delivery");
+    const category = screen.getByText("Backend");
+    const skillItem = description.closest("button");
+    expect(description).toHaveClass("skill-description");
+    expect(skillItem?.children[0]).toBe(description);
+    expect(skillItem?.children[1]).toBe(category);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Python backend/ }));

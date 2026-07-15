@@ -192,6 +192,11 @@ button {
   background: #f3f6ff;
 }
 
+.skill-description {
+  color: #20242c;
+  line-height: 1.45;
+}
+
 .skill-tag {
   justify-self: start;
   border: 1px solid #bfd0f7;

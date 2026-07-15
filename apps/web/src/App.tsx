@@ -555,8 +555,8 @@ export function App() {
                     onClick={() => selectSkillEvidence(skillEvidence)}
                     type="button"
                   >
+                    <span className="skill-description">{skillEvidence.description}</span>
                     <span className="skill-tag">{skillEvidence.category || "未分类"}</span>
-                    <small>{skillEvidence.description}</small>
                   </button>
                 ))}
               </div>
