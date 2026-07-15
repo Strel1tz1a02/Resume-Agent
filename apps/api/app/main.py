@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.jobs import router as jobs_router
 from app.routers.profile import router as profile_router
 
 app = FastAPI(title="Resume Agent API")
@@ -15,6 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(profile_router)# 路由可以拆到不同文件，最后在入口注册
+app.include_router(jobs_router)
 
 
 @app.get("/health")
