@@ -122,11 +122,26 @@ def test_deleting_a_job_removes_its_jd_analyses(
 ) -> None:
     job = _create_job(client)
     analysis = client.post(f"/jobs/{job['id']}/jd-analyses").json()
+    other_user_analysis = JDAnalysis(
+        user_id="other-user",
+        job_posting_id=job["id"],
+        hard_requirements=[],
+        bonus_requirements=[],
+        keywords=[],
+        responsibilities=[],
+        capability_dimensions=[],
+        risks=[],
+        resume_emphasis=[],
+        completeness_status="incomplete",
+    )
+    db_session.add(other_user_analysis)
+    db_session.commit()
 
     response = client.delete(f"/jobs/{job['id']}")
     assert response.status_code == 204
     assert db_session.get(JobPosting, job["id"]) is None
     assert db_session.get(JDAnalysis, analysis["id"]) is None
+    assert db_session.get(JDAnalysis, other_user_analysis.id) is None
 
 
 def test_other_users_jobs_and_analyses_are_inaccessible(

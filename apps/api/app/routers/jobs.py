@@ -108,7 +108,6 @@ def delete_job(job_id: int, db: Session = Depends(get_db)) -> Response:
     analyses = db.scalars(
         select(JDAnalysis).where(
             JDAnalysis.job_posting_id == job.id,
-            JDAnalysis.user_id == DEFAULT_USER_ID,
         )
     )
     for analysis in analyses:
