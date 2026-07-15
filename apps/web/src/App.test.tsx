@@ -19,11 +19,8 @@ const existingExperience = {
 
 const existingSkillEvidence = {
   id: 12,
-  skill_name: "Python",
-  proficiency: "熟练",
-  experience_ids: [7],
-  evidence_summary: "在校园招聘助手项目中使用 Python 构建 API",
-  outcome: "完成本地后端服务",
+  category: "Backend",
+  description: "Python backend with FastAPI RESTful API delivery",
 };
 
 function mockJsonResponse(body: unknown, status = 200): Response {
@@ -125,27 +122,26 @@ describe("画像库页面", () => {
   });
 });
 
-describe("技能证据页面", () => {
-  it("loads, edits, and creates skill evidences without requiring experiences", async () => {
+
+describe("skill specialties page", () => {
+  it("shows a flat list and edits skill specialties in a dialog", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(mockJsonResponse([]))
       .mockResolvedValueOnce(mockJsonResponse([existingSkillEvidence]))
       .mockResolvedValueOnce(
         mockJsonResponse({
-          ...existingSkillEvidence,
-          outcome: "完成画像 API 和前端联调",
+          id: 12,
+          category: "AI",
+          description: "RAG and LangGraph agent development",
         }),
       )
       .mockResolvedValueOnce(
         mockJsonResponse(
           {
             id: 13,
-            skill_name: "数据分析",
-            proficiency: "入门",
-            experience_ids: [],
-            evidence_summary: "课程项目中完成数据清洗和可视化",
-            outcome: "形成分析报告",
+            category: "Backend",
+            description: "Stable RESTful services with FastAPI",
           },
           201,
         ),
@@ -153,57 +149,47 @@ describe("技能证据页面", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "技能证据" }));
+    fireEvent.click((await screen.findAllByRole("button"))[2]);
 
-    expect(
-      await screen.findByRole("heading", { name: "技能证据" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Python")).toBeInTheDocument();
+    expect(await screen.findByText("Backend")).toBeInTheDocument();
+    expect(screen.getByText("Python backend with FastAPI RESTful API delivery")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Python 熟练" }));
-    expect(screen.getByLabelText("技能名称")).toHaveValue("Python");
-    expect(screen.getByLabelText("关联经历 ID")).toHaveValue("7");
+    fireEvent.click(screen.getByRole("button", { name: /Python backend/ }));
 
-    fireEvent.change(screen.getByLabelText("产出/成果"), {
-      target: { value: "完成画像 API 和前端联调" },
+    const editDialog = await screen.findByRole("dialog");
+    const editFields = screen.getAllByRole("textbox");
+    expect(editFields[0]).toHaveValue("Backend");
+    expect(editFields[1]).toHaveValue("Python backend with FastAPI RESTful API delivery");
+
+    fireEvent.change(editFields[0], { target: { value: "AI" } });
+    fireEvent.change(editFields[1], {
+      target: { value: "RAG and LangGraph agent development" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存技能证据" }));
+    fireEvent.click(editDialog.querySelector('button[type="submit"]') as HTMLButtonElement);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://127.0.0.1:8000/skill-evidences/12",
-      expect.objectContaining({
-        method: "PUT",
-        body: expect.stringContaining("完成画像 API 和前端联调"),
-      }),
-    );
-    expect(await screen.findByText("技能证据已保存")).toBeInTheDocument();
+    const updateBody = JSON.parse(fetchMock.mock.calls[2][1]?.body as string);
+    expect(updateBody).toEqual({
+      category: "AI",
+      description: "RAG and LangGraph agent development",
+    });
+    expect(updateBody).not.toHaveProperty("experience_ids");
 
-    fireEvent.click(screen.getByRole("button", { name: "新增技能证据" }));
-    fireEvent.change(screen.getByLabelText("技能名称"), {
-      target: { value: "数据分析" },
+    fireEvent.click(screen.getAllByRole("button")[6]);
+    const createDialog = await screen.findByRole("dialog");
+    const createFields = screen.getAllByRole("textbox");
+    fireEvent.change(createFields[0], { target: { value: "Backend" } });
+    fireEvent.change(createFields[1], {
+      target: { value: "Stable RESTful services with FastAPI" },
     });
-    fireEvent.change(screen.getByLabelText("熟练度"), {
-      target: { value: "入门" },
-    });
-    fireEvent.change(screen.getByLabelText("关联经历 ID"), {
-      target: { value: "" },
-    });
-    fireEvent.change(screen.getByLabelText("证据摘要"), {
-      target: { value: "课程项目中完成数据清洗和可视化" },
-    });
-    fireEvent.change(screen.getByLabelText("产出/成果"), {
-      target: { value: "形成分析报告" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "保存技能证据" }));
+    fireEvent.click(createDialog.querySelector('button[type="submit"]') as HTMLButtonElement);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://127.0.0.1:8000/skill-evidences",
-      expect.objectContaining({
-        method: "POST",
-        body: expect.stringContaining('"experience_ids":[]'),
-      }),
-    );
+    const createBody = JSON.parse(fetchMock.mock.calls[3][1]?.body as string);
+    expect(createBody).toEqual({
+      category: "Backend",
+      description: "Stable RESTful services with FastAPI",
+    });
   });
 });

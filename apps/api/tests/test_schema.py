@@ -30,3 +30,13 @@ def test_cross_record_relationship_columns_match_spec() -> None:
     assert "match_report_id" in Base.metadata.tables["resume_versions"].columns
     assert "job_posting_id" in Base.metadata.tables["application_records"].columns
     assert "resume_version_id" in Base.metadata.tables["application_records"].columns
+
+
+def test_skill_evidence_columns_match_skill_specialty_model() -> None:
+    columns = Base.metadata.tables["skill_evidences"].columns
+
+    assert "category" in columns
+    assert "description" in columns
+    assert "skill_name" not in columns
+    assert "proficiency" not in columns
+    assert "experience_ids" not in columns

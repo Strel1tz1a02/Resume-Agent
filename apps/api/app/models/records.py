@@ -71,11 +71,8 @@ class SkillEvidence(UserOwnedMixin, TimestampMixin, Base):
     __tablename__ = "skill_evidences"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    skill_name: Mapped[str] = mapped_column(String(120))
-    proficiency: Mapped[str | None] = mapped_column(String(80))
-    experience_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
-    evidence_summary: Mapped[str | None] = mapped_column(Text)
-    outcome: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text)
 
 
 class JobPosting(UserOwnedMixin, TimestampMixin, Base):

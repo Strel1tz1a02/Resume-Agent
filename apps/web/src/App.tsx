@@ -64,18 +64,12 @@ const emptyExperience: ExperiencePayload = {
 };
 
 const emptySkillEvidence: SkillEvidencePayload = {
-  skill_name: "",
-  proficiency: "",
-  experience_ids: [],
-  evidence_summary: "",
-  outcome: "",
+  category: "",
+  description: "",
 };
 
 type DraftExperience = ExperiencePayload & { id?: number };
-type SkillEvidenceDraft = Omit<SkillEvidencePayload, "experience_ids"> & {
-  id?: number;
-  experience_ids_text: string;
-};
+type SkillEvidenceDraft = SkillEvidencePayload & { id?: number };
 
 function toDraft(experience: Experience): DraftExperience {
   return {
@@ -108,35 +102,18 @@ function toPayload(draft: DraftExperience): ExperiencePayload {
   };
 }
 
-function formatExperienceIds(experienceIds: number[]): string {
-  return experienceIds.join(", ");
-}
-
-function parseExperienceIds(value: string): number[] {
-  return value
-    .split(",")
-    .map((item) => Number.parseInt(item.trim(), 10))
-    .filter((item) => Number.isInteger(item));
-}
-
 function toSkillDraft(skillEvidence: SkillEvidence): SkillEvidenceDraft {
   return {
     id: skillEvidence.id,
-    skill_name: skillEvidence.skill_name,
-    proficiency: skillEvidence.proficiency ?? "",
-    experience_ids_text: formatExperienceIds(skillEvidence.experience_ids),
-    evidence_summary: skillEvidence.evidence_summary ?? "",
-    outcome: skillEvidence.outcome ?? "",
+    category: skillEvidence.category ?? "",
+    description: skillEvidence.description,
   };
 }
 
 function toSkillPayload(draft: SkillEvidenceDraft): SkillEvidencePayload {
   return {
-    skill_name: draft.skill_name.trim() || "未命名技能",
-    proficiency: draft.proficiency || null,
-    experience_ids: parseExperienceIds(draft.experience_ids_text),
-    evidence_summary: draft.evidence_summary || null,
-    outcome: draft.outcome || null,
+    category: draft.category?.trim() || null,
+    description: draft.description.trim(),
   };
 }
 
@@ -169,6 +146,7 @@ export function App() {
   const [skillEvidences, setSkillEvidences] = useState<SkillEvidence[]>([]);
   const [selectedSkillId, setSelectedSkillId] = useState<number | "new" | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillEvidenceDraft | null>(null);
+  const [skillDialogMode, setSkillDialogMode] = useState<"new" | "edit" | null>(null);
   const [isSkillLoading, setIsSkillLoading] = useState(false);
   const [isSkillSaving, setIsSkillSaving] = useState(false);
   const [skillError, setSkillError] = useState<string | null>(null);
@@ -206,13 +184,9 @@ export function App() {
       const items = await listSkillEvidences();
       setSkillEvidences(items);
       setHasLoadedSkills(true);
-      if (items.length > 0) {
-        setSelectedSkillId(items[0].id);
-        setSkillDraft(toSkillDraft(items[0]));
-      } else {
-        setSelectedSkillId(null);
-        setSkillDraft(null);
-      }
+      setSelectedSkillId(null);
+      setSkillDraft(null);
+      setSkillDialogMode(null);
     } catch {
       setSkillError("技能证据加载失败");
     } finally {
@@ -284,16 +258,21 @@ export function App() {
   function selectSkillEvidence(skillEvidence: SkillEvidence) {
     setSelectedSkillId(skillEvidence.id);
     setSkillDraft(toSkillDraft(skillEvidence));
+    setSkillDialogMode("edit");
     setSkillSaveMessage(null);
   }
 
   function createSkillDraft() {
     setSelectedSkillId("new");
-    setSkillDraft({
-      ...emptySkillEvidence,
-      experience_ids_text: "",
-    });
+    setSkillDraft({ ...emptySkillEvidence });
+    setSkillDialogMode("new");
     setSkillSaveMessage(null);
+  }
+
+  function closeSkillDialog() {
+    setSelectedSkillId(null);
+    setSkillDraft(null);
+    setSkillDialogMode(null);
   }
 
   function updateSkillDraft(
@@ -323,6 +302,7 @@ export function App() {
       });
       setSelectedSkillId(saved.id);
       setSkillDraft(toSkillDraft(saved));
+      setSkillDialogMode(null);
       setSkillSaveMessage("技能证据已保存");
     } catch {
       setSkillError("技能证据保存失败");
@@ -534,7 +514,8 @@ export function App() {
         ) : null}
 
         {activePage === "skills" ? (
-          <section className="profile-workbench">
+          <>
+          <section className="profile-workbench skill-workbench">
             <div className="experience-list-panel">
               <div className="panel-heading">
                 <div>
@@ -542,7 +523,7 @@ export function App() {
                   <p>{skillEvidences.length} 条已保存技能证据</p>
                 </div>
                 <button
-                  aria-label="新增技能证据"
+                  aria-label="新增技能特长"
                   className="icon-button"
                   onClick={createSkillDraft}
                   type="button"
@@ -564,7 +545,7 @@ export function App() {
               <div className="experience-list">
                 {skillEvidences.map((skillEvidence) => (
                   <button
-                    aria-label={`${skillEvidence.skill_name} ${skillEvidence.proficiency ?? ""}`.trim()}
+                    aria-label={`编辑技能特长 ${skillEvidence.description}`}
                     className={
                       skillEvidence.id === selectedSkillId
                         ? "experience-list-item selected"
@@ -574,99 +555,70 @@ export function App() {
                     onClick={() => selectSkillEvidence(skillEvidence)}
                     type="button"
                   >
-                    <span>{skillEvidence.skill_name}</span>
-                    <small>{skillEvidence.proficiency || "未填写熟练度"}</small>
+                    <span className="skill-tag">{skillEvidence.category || "未分类"}</span>
+                    <small>{skillEvidence.description}</small>
                   </button>
                 ))}
               </div>
             </div>
-
-            <form
-              className="experience-detail-panel"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveSkillDraft();
-              }}
-            >
-              <div className="panel-heading">
-                <div>
-                  <h3>技能证据详情</h3>
-                  <p>
-                    {selectedSkillEvidence
-                      ? `正在维护「${selectedSkillEvidence.skill_name}」`
-                      : "选择或新增一条技能证据"}
-                  </p>
-                </div>
-                <button
-                  className="primary-button"
-                  disabled={!skillDraft || isSkillSaving}
-                  type="submit"
-                >
-                  <Save aria-hidden="true" size={16} />
-                  {isSkillSaving ? "保存中" : "保存技能证据"}
-                </button>
-              </div>
-
-              {skillDraft ? (
-                <>
-                  <div className="form-grid">
-                    <label>
-                      技能名称
-                      <input
-                        onChange={(event) =>
-                          updateSkillDraft("skill_name", event.target.value)
-                        }
-                        value={skillDraft.skill_name}
-                      />
-                    </label>
-                    <label>
-                      熟练度
-                      <input
-                        onChange={(event) =>
-                          updateSkillDraft("proficiency", event.target.value)
-                        }
-                        value={skillDraft.proficiency ?? ""}
-                      />
-                    </label>
-                    <label className="wide-field">
-                      关联经历 ID
-                      <input
-                        onChange={(event) =>
-                          updateSkillDraft("experience_ids_text", event.target.value)
-                        }
-                        placeholder="可选，例如：1, 2"
-                        value={skillDraft.experience_ids_text}
-                      />
-                    </label>
+          </section>
+          {skillDialogMode && skillDraft ? (
+            <div className="modal-backdrop" role="presentation">
+              <form
+                aria-labelledby="skill-dialog-title"
+                aria-modal="true"
+                className="modal-panel"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveSkillDraft();
+                }}
+                role="dialog"
+              >
+                <div className="panel-heading">
+                  <div>
+                    <h3 id="skill-dialog-title">
+                      {skillDialogMode === "new" ? "新增技能特长" : "编辑技能特长"}
+                    </h3>
+                    <p>分类会作为标签显示在列表中。</p>
                   </div>
+                  <button
+                    className="primary-button"
+                    disabled={isSkillSaving || !skillDraft.description.trim()}
+                    type="submit"
+                  >
+                    <Save aria-hidden="true" size={16} />
+                    {isSkillSaving ? "保存中" : "保存"}
+                  </button>
+                </div>
 
-                  <label className="field-block">
-                    证据摘要
+                <div className="form-grid modal-form-grid">
+                  <label>
+                    分类
+                    <input
+                      onChange={(event) => updateSkillDraft("category", event.target.value)}
+                      value={skillDraft.category ?? ""}
+                    />
+                  </label>
+                  <label className="wide-field">
+                    技能特长描述
                     <textarea
                       onChange={(event) =>
-                        updateSkillDraft("evidence_summary", event.target.value)
+                        updateSkillDraft("description", event.target.value)
                       }
-                      value={skillDraft.evidence_summary ?? ""}
+                      value={skillDraft.description}
                     />
                   </label>
-                  <label className="field-block">
-                    产出/成果
-                    <textarea
-                      onChange={(event) => updateSkillDraft("outcome", event.target.value)}
-                      value={skillDraft.outcome ?? ""}
-                    />
-                  </label>
-                </>
-              ) : (
-                <div className="empty-state compact">
-                  <h3>还没有选中技能证据</h3>
-                  <p>点击左侧 + 新增技能证据，或者选择一条已有技能证据继续维护。</p>
                 </div>
-              )}
 
-              {skillSaveMessage ? <p className="save-message">{skillSaveMessage}</p> : null}
-            </form>
-          </section>
+                <div className="modal-actions">
+                  <button onClick={closeSkillDialog} type="button">
+                    取消
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+          </>
         ) : null}
 
         {activePage !== "profile" && activePage !== "skills" ? (
@@ -686,9 +638,9 @@ export function App() {
           {activePage === "skills" ? (
             <>
               <p>
-                {skillDraft?.skill_name
-                  ? `我会围绕「${skillDraft.skill_name}」补充证据。`
-                  : "我会帮助你把技能写成可复用的事实证据。"}
+                {skillDraft?.description
+                  ? `我会围绕「${skillDraft.description}」补充表达。`
+                  : "我会帮助你把技能写成可复用的技能特长。"}
               </p>
               <ul>
                 <li>技能证据可以不关联具体经历。</li>

@@ -66,19 +66,13 @@ class ExperienceRead(ExperienceCreate):
 
 
 class SkillEvidenceCreate(BaseModel):
-    skill_name: str
-    proficiency: str | None = None
-    experience_ids: list[int] = Field(default_factory=list)
-    evidence_summary: str | None = None
-    outcome: str | None = None
+    category: str | None = None
+    description: str
 
 
 class SkillEvidenceUpdate(BaseModel):
-    skill_name: str | None = None
-    proficiency: str | None = None
-    experience_ids: list[int] | None = None
-    evidence_summary: str | None = None
-    outcome: str | None = None
+    category: str | None = None
+    description: str | None = None
 
 
 class SkillEvidenceRead(SkillEvidenceCreate):

@@ -91,42 +91,34 @@ def test_experience_crud(client: TestClient) -> None:
     assert client.get("/experiences").json() == []
 
 
-def test_skill_evidence_can_reference_multiple_experiences(client: TestClient) -> None:
-    first_experience = client.post(
-        "/experiences",
-        json={"type": "project", "name": "项目 A"},
-    ).json()
-    second_experience = client.post(
-        "/experiences",
-        json={"type": "internship", "name": "实习 B"},
-    ).json()
-
+def test_skill_evidence_stores_independent_skill_specialty(client: TestClient) -> None:
     create_response = client.post(
         "/skill-evidences",
         json={
-            "skill_name": "Python",
-            "proficiency": "熟悉",
-            "experience_ids": [first_experience["id"], second_experience["id"]],
-            "evidence_summary": "在项目和实习中使用 Python 构建 API",
-            "outcome": "完成后端服务",
+            "category": "后端开发",
+            "description": "Python后端基础扎实，熟悉FastAPI框架，可以将AI应用模块封装为高可用RESTful接口",
         },
     )
 
     assert create_response.status_code == 201
-    assert create_response.json()["experience_ids"] == [
-        first_experience["id"],
-        second_experience["id"],
-    ]
+    assert create_response.json()["category"] == "后端开发"
+    assert create_response.json()["description"].startswith("Python后端基础扎实")
+    assert "experience_ids" not in create_response.json()
+    assert "skill_name" not in create_response.json()
 
     update_response = client.put(
         f"/skill-evidences/{create_response.json()['id']}",
-        json={"proficiency": "熟练"},
+        json={
+            "category": "AI 应用",
+            "description": "掌握RAG、Agent开发原理，理解LangChain、Langgraph框架原理，可以熟练使用框架进行开发",
+        },
     )
 
     assert update_response.status_code == 200
-    assert update_response.json()["proficiency"] == "熟练"
+    assert update_response.json()["category"] == "AI 应用"
+    assert "Langgraph" in update_response.json()["description"]
 
     list_response = client.get("/skill-evidences")
 
     assert list_response.status_code == 200
-    assert list_response.json()[0]["skill_name"] == "Python"
+    assert list_response.json()[0]["description"] == update_response.json()["description"]

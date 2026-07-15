@@ -144,6 +144,10 @@ button {
   margin-top: 24px;
 }
 
+.skill-workbench {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .experience-list-panel,
 .experience-detail-panel,
 .empty-state,
@@ -180,11 +184,23 @@ button {
 
 .experience-list-item small {
   color: #667085;
+  line-height: 1.45;
 }
 
 .experience-list-item.selected {
   border-color: #2457d6;
   background: #f3f6ff;
+}
+
+.skill-tag {
+  justify-self: start;
+  border: 1px solid #bfd0f7;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #1f4fc6;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .icon-button,
@@ -294,6 +310,44 @@ textarea {
   margin: 12px 0 0;
   color: #147a4b;
   font-weight: 700;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(17 24 39 / 42%);
+  padding: 20px;
+  z-index: 10;
+}
+
+.modal-panel {
+  width: min(640px, 100%);
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgb(15 23 42 / 20%);
+  padding: 18px;
+}
+
+.modal-form-grid {
+  grid-template-columns: 1fr;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.modal-actions button {
+  min-height: 36px;
+  border: 1px solid #c9d3e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #253044;
+  padding: 0 12px;
 }
 
 .agent-panel {
