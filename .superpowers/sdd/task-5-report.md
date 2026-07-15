@@ -24,3 +24,26 @@
 - 版本切换与历史保存不调用任何岗位更新接口，因此不会修改 `current_jd_analysis_id`。
 - 前端 API 定义只有七个数组型分析字段，连同完整性状态构成全部八个可编辑分析字段；未扩展后端契约。
 - 测试覆盖默认/回退选择、历史切换不改指针、换行规范化保存、重新分析成功刷新、失败保留原结果，以及迟到历史响应隔离。
+
+## P1 Concurrency Fixes
+
+### RED/GREEN
+
+1. RED: A 的历史请求处于 deferred 状态时切换 A -> B -> A 并完成重新分析，旧 A 响应仍可因相同 `jobId` 覆盖重新分析得到的新历史。
+   GREEN: `loadAnalyses` 为每个岗位捕获递增 history epoch；只有当前岗位和当前 epoch 同时匹配时才写入。重新分析成功后递增该岗位 epoch，使所有更早历史请求失效。
+2. RED: 保存分析后切换到另一版本时，旧请求的 `finally` 不再满足分析 ID 条件，导致保存按钮永久显示“保存中”。
+   GREEN: 版本切换立即解除旧保存态；`finally` 仅当请求仍是最新保存请求时才更新保存态，因此旧请求不会干扰更新后的请求。
+3. RED: 保存分析后切换版本再切回并编辑草稿，旧保存响应仍会满足相同岗位和分析 ID 条件，从而覆盖新草稿。
+   GREEN: 保存响应回写必须同时匹配岗位 ID、分析 ID、保存请求序号和草稿 revision；版本切换或任意草稿编辑都会使旧响应失去资格。
+
+### Verification
+
+- Focused: `npx.cmd vitest run --no-cache src/features/jobs/JobsPage.test.tsx` passed (19 tests).
+- Full: `npx.cmd vitest run --no-cache` passed (3 files, 31 tests).
+- Build: `npm.cmd run build` passed.
+
+### Self Review
+
+- history epoch 使用每岗位 Map，避免 A 的重新分析意外作废 B 的历史加载。
+- 保存状态的释放与数据回写分离：前者以最新保存请求为准，后者要求完整的岗位、版本、请求和 revision 资格。
+- 三个 deferred 回归覆盖旧同岗位历史覆盖、跨版本保存状态卡住，以及切回原版本后的旧响应覆盖草稿。

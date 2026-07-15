@@ -633,4 +633,136 @@ describe("JobsPage", () => {
     expect(screen.getByDisplayValue("B 要求")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it("does not let an old A history request overwrite reanalysis after returning from B", async () => {
+    const pendingOldAHistory = deferred<Response>();
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const refreshedJob = { ...jobWithCurrentAnalysis, current_jd_analysis_id: 42 };
+    const reanalyzed = { ...currentAnalysis, id: 42, hard_requirements: ["重新分析结果"] };
+    let aHistoryRequests = 0;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis, secondJob]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && !init?.method) {
+        aHistoryRequests += 1;
+        if (aHistoryRequests === 1) return pendingOldAHistory.promise;
+        if (aHistoryRequests === 2) return Promise.resolve(jsonResponse([currentAnalysis]));
+        return Promise.resolve(jsonResponse([reanalyzed, currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/8/jd-analyses") {
+        return Promise.resolve(jsonResponse([{ ...currentAnalysis, job_posting_id: 8, hard_requirements: ["B 历史"] }]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(reanalyzed, 201));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7") {
+        return Promise.resolve(jsonResponse(refreshedJob));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("前端工程师");
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+    expect(await screen.findByDisplayValue("B 历史")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /前端工程师/ }));
+    expect(await screen.findByDisplayValue("当前 React 要求")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    expect(await screen.findByDisplayValue("重新分析结果")).toBeInTheDocument();
+
+    await act(async () => {
+      pendingOldAHistory.resolve(jsonResponse([olderAnalysis]));
+      await pendingOldAHistory.promise;
+    });
+
+    expect(screen.getByDisplayValue("重新分析结果")).toBeInTheDocument();
+  });
+
+  it("clears a deferred save state after switching to another analysis version", async () => {
+    const pendingSave = deferred<Response>();
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis, olderAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41") {
+        return pendingSave.promise;
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("分析版本");
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+    fireEvent.change(screen.getByLabelText("分析版本"), {
+      target: { value: String(olderAnalysis.id) },
+    });
+    pendingSave.resolve(jsonResponse(currentAnalysis));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存分析" })).toBeEnabled(),
+    );
+  });
+
+  it("does not let a deferred save overwrite a newer draft after switching versions twice", async () => {
+    const pendingSave = deferred<Response>();
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis, olderAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41") {
+        return pendingSave.promise;
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("分析版本");
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "第一次保存" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+    fireEvent.change(screen.getByLabelText("分析版本"), {
+      target: { value: String(olderAnalysis.id) },
+    });
+    fireEvent.change(screen.getByLabelText("分析版本"), {
+      target: { value: String(currentAnalysis.id) },
+    });
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "最新草稿" },
+    });
+    await act(async () => {
+      pendingSave.resolve(jsonResponse({ ...currentAnalysis, hard_requirements: ["旧保存响应"] }));
+      await pendingSave.promise;
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("硬性要求")).toHaveValue("最新草稿"),
+    );
+    expect(screen.getByRole("button", { name: "保存分析" })).toBeEnabled();
+  });
 });

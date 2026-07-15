@@ -135,6 +135,9 @@ export function JobsPage() {
   const [analyses, setAnalyses] = useState<JDAnalysis[]>([]);
   const [analysis, setAnalysis] = useState<JDAnalysis | null>(null);
   const analysisRef = useRef<JDAnalysis | null>(null);
+  const analysisHistoryEpochRef = useRef(new Map<number, number>());
+  const analysisRevisionRef = useRef(0);
+  const analysisSaveRequestRef = useRef(0);
   const [analysisDraft, setAnalysisDraft] = useState<AnalysisDraft | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
@@ -178,6 +181,7 @@ export function JobsPage() {
     setAnalyses([]);
     setAnalysis(null);
     analysisRef.current = null;
+    analysisRevisionRef.current += 1;
     setAnalysisDraft(null);
     setAnalysisError(null);
     setAnalysisSaveMessage(null);
@@ -185,31 +189,50 @@ export function JobsPage() {
     setIsAnalysisLoading(false);
     setIsAnalyzing(false);
     setIsSaving(false);
+    setIsSavingAnalysis(false);
     void loadAnalyses(job);
   }
 
   function selectAnalysis(nextAnalysis: JDAnalysis | null) {
+    analysisRevisionRef.current += 1;
     analysisRef.current = nextAnalysis;
     setAnalysis(nextAnalysis);
     setAnalysisDraft(nextAnalysis ? toAnalysisDraft(nextAnalysis) : null);
+    setIsSavingAnalysis(false);
+  }
+
+  function nextAnalysisHistoryEpoch(jobId: number) {
+    const nextEpoch = (analysisHistoryEpochRef.current.get(jobId) ?? 0) + 1;
+    analysisHistoryEpochRef.current.set(jobId, nextEpoch);
+    return nextEpoch;
   }
 
   async function loadAnalyses(job: JobPosting) {
     const jobId = job.id;
+    const historyEpoch = nextAnalysisHistoryEpoch(jobId);
     setIsAnalysisLoading(true);
     setAnalysisError(null);
     try {
       const items = await listJDAnalyses(jobId);
-      if (selectedIdRef.current === jobId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisHistoryEpochRef.current.get(jobId) === historyEpoch
+      ) {
         setAnalyses(items);
         selectAnalysis(defaultAnalysis(job, items));
       }
     } catch {
-      if (selectedIdRef.current === jobId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisHistoryEpochRef.current.get(jobId) === historyEpoch
+      ) {
         setAnalysisError("分析历史加载失败");
       }
     } finally {
-      if (selectedIdRef.current === jobId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisHistoryEpochRef.current.get(jobId) === historyEpoch
+      ) {
         setIsAnalysisLoading(false);
       }
     }
@@ -238,6 +261,7 @@ export function JobsPage() {
         getJob(jobId),
         listJDAnalyses(jobId),
       ]);
+      nextAnalysisHistoryEpoch(jobId);
       setJobs((current) =>
         current.map((item) =>
           item.id === jobId ? savedJob : item,
@@ -285,6 +309,7 @@ export function JobsPage() {
   }
 
   function updateAnalysisDraft(field: AnalysisListField, value: string) {
+    analysisRevisionRef.current += 1;
     setAnalysisDraft((current) =>
       current ? { ...current, [field]: value.split("\n") } : current,
     );
@@ -292,6 +317,7 @@ export function JobsPage() {
   }
 
   function updateAnalysisCompleteness(value: string) {
+    analysisRevisionRef.current += 1;
     setAnalysisDraft((current) =>
       current ? { ...current, completeness_status: value } : current,
     );
@@ -311,11 +337,18 @@ export function JobsPage() {
     const jobId = selectedId;
     const analysisId = analysis.id;
     const payload = toAnalysisPayload(analysisDraft);
+    const saveRequest = ++analysisSaveRequestRef.current;
+    const analysisRevision = analysisRevisionRef.current;
     setIsSavingAnalysis(true);
     setAnalysisSaveError(null);
     try {
       const savedAnalysis = await updateJDAnalysis(analysisId, payload);
-      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisRef.current?.id === analysisId &&
+        analysisSaveRequestRef.current === saveRequest &&
+        analysisRevisionRef.current === analysisRevision
+      ) {
         setAnalyses((current) =>
           current.map((item) => (item.id === analysisId ? savedAnalysis : item)),
         );
@@ -323,11 +356,16 @@ export function JobsPage() {
         setAnalysisSaveMessage("分析已保存");
       }
     } catch {
-      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisRef.current?.id === analysisId &&
+        analysisSaveRequestRef.current === saveRequest &&
+        analysisRevisionRef.current === analysisRevision
+      ) {
         setAnalysisSaveError("分析保存失败");
       }
     } finally {
-      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+      if (analysisSaveRequestRef.current === saveRequest) {
         setIsSavingAnalysis(false);
       }
     }
