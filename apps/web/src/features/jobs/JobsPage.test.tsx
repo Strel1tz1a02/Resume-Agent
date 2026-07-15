@@ -27,6 +27,26 @@ const secondJob = {
   raw_jd_text: "负责 Web 平台交付",
 };
 
+const olderAnalysis = {
+  id: 40,
+  job_posting_id: 7,
+  hard_requirements: ["旧版 React 要求"],
+  bonus_requirements: ["旧版加分项"],
+  keywords: ["旧关键词"],
+  responsibilities: ["旧职责"],
+  capability_dimensions: ["旧能力"],
+  risks: ["旧风险"],
+  resume_emphasis: ["旧版侧重点"],
+  completeness_status: "incomplete",
+};
+
+const currentAnalysis = {
+  ...olderAnalysis,
+  id: 41,
+  hard_requirements: ["当前 React 要求"],
+  completeness_status: "complete",
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -55,7 +75,8 @@ describe("JobsPage", () => {
   it("mounts the jobs workbench from the jobs navigation", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([firstJob]));
+      .mockResolvedValueOnce(jsonResponse([firstJob]))
+      .mockResolvedValueOnce(jsonResponse([]));
 
     render(<App />);
 
@@ -68,7 +89,7 @@ describe("JobsPage", () => {
   it("loads jobs and shows the selected job details", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       jsonResponse([firstJob, secondJob]),
-    );
+    ).mockResolvedValueOnce(jsonResponse([])).mockResolvedValueOnce(jsonResponse([]));
 
     render(<JobsPage />);
 
@@ -83,7 +104,8 @@ describe("JobsPage", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse({ detail: "boom" }, 500))
-      .mockResolvedValueOnce(jsonResponse([firstJob]));
+      .mockResolvedValueOnce(jsonResponse([firstJob]))
+      .mockResolvedValueOnce(jsonResponse([]));
 
     render(<JobsPage />);
 
@@ -91,7 +113,7 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
 
     expect(await screen.findByDisplayValue("前端工程师")).toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   });
 
   it("keeps B selected and preserves B's draft when A's save resolves late", async () => {
@@ -99,7 +121,9 @@ describe("JobsPage", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([firstJob, secondJob]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockImplementationOnce(() => pendingSave.promise)
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ ...secondJob, company: "B saved" }));
 
     render(<JobsPage />);
@@ -117,9 +141,9 @@ describe("JobsPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "保存岗位" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(fetchMock.mock.calls[2][0]).toBe("http://127.0.0.1:8000/jobs/8");
-    expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toMatchObject({
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    expect(fetchMock.mock.calls[4][0]).toBe("http://127.0.0.1:8000/jobs/8");
+    expect(JSON.parse(fetchMock.mock.calls[4][1]?.body as string)).toMatchObject({
       company: "B draft",
       title: "全栈工程师",
     });
@@ -129,7 +153,9 @@ describe("JobsPage", () => {
     const pendingSave = deferred<Response>();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([firstJob, secondJob]))
-      .mockImplementationOnce(() => pendingSave.promise);
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockImplementationOnce(() => pendingSave.promise)
+      .mockResolvedValueOnce(jsonResponse([]));
 
     render(<JobsPage />);
 
@@ -161,8 +187,10 @@ describe("JobsPage", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([secondJob]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(createdJob, 201))
-      .mockImplementationOnce(() => pendingAnalysis.promise);
+      .mockImplementationOnce(() => pendingAnalysis.promise)
+      .mockResolvedValueOnce(jsonResponse([]));
 
     render(<JobsPage />);
 
@@ -173,7 +201,7 @@ describe("JobsPage", () => {
       target: { value: "A JD" },
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "创建岗位" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
 
     await act(async () => {
@@ -212,8 +240,10 @@ describe("JobsPage", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([secondJob]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(createdJob, 201))
-      .mockImplementationOnce(() => pendingAnalysis.promise);
+      .mockImplementationOnce(() => pendingAnalysis.promise)
+      .mockResolvedValueOnce(jsonResponse([]));
 
     render(<JobsPage />);
 
@@ -224,7 +254,7 @@ describe("JobsPage", () => {
       target: { value: "A JD" },
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "创建岗位" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
 
     await act(async () => {
@@ -263,7 +293,9 @@ describe("JobsPage", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(createdJob, 201))
-      .mockResolvedValueOnce(jsonResponse(analysis, 201));
+      .mockResolvedValueOnce(jsonResponse(analysis, 201))
+      .mockResolvedValueOnce(jsonResponse(createdJob))
+      .mockResolvedValueOnce(jsonResponse([analysis]));
 
     render(<JobsPage />);
 
@@ -277,7 +309,7 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "创建岗位" }));
 
     await screen.findByRole("heading", { name: "JD 分析" });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     expect(fetchMock.mock.calls[1][0]).toBe("http://127.0.0.1:8000/jobs");
     expect(fetchMock.mock.calls[1][1]).toEqual(
       expect.objectContaining({ method: "POST" }),
@@ -315,7 +347,10 @@ describe("JobsPage", () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(createdJob, 201))
       .mockResolvedValueOnce(jsonResponse({ detail: "analysis failed" }, 500))
-      .mockResolvedValueOnce(jsonResponse(recoveredAnalysis, 201));
+      .mockResolvedValueOnce(jsonResponse(recoveredAnalysis, 201))
+      .mockResolvedValueOnce(jsonResponse({ ...createdJob, current_jd_analysis_id: 22 }))
+      .mockResolvedValueOnce(jsonResponse([recoveredAnalysis]));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<JobsPage />);
 
@@ -331,7 +366,7 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
 
     expect(await screen.findByRole("heading", { name: "JD 分析" })).toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     expect(screen.getByText("掌握 Python")).toBeInTheDocument();
   });
 
@@ -344,6 +379,7 @@ describe("JobsPage", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([firstJob]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(updatedJob));
 
     render(<JobsPage />);
@@ -363,9 +399,9 @@ describe("JobsPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "保存岗位" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1][0]).toBe("http://127.0.0.1:8000/jobs/7");
-    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2][0]).toBe("http://127.0.0.1:8000/jobs/7");
+    expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toEqual({
       company: "新星科技",
       title: "前端工程师",
       location: "上海",
@@ -378,5 +414,223 @@ describe("JobsPage", () => {
       notes: "优先准备项目案例",
     });
     expect(screen.getByText("岗位已保存")).toBeInTheDocument();
+  });
+
+  it("defaults to the job's current analysis and falls back to the latest history", async () => {
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const jobWithoutMatchingCurrentAnalysis = {
+      ...secondJob,
+      current_jd_analysis_id: 999,
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(
+          jsonResponse([jobWithCurrentAnalysis, jobWithoutMatchingCurrentAnalysis]),
+        );
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis, olderAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/8/jd-analyses") {
+        return Promise.resolve(jsonResponse([olderAnalysis, currentAnalysis]));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    expect(await screen.findByLabelText("分析版本")).toHaveValue(String(currentAnalysis.id));
+    expect(screen.getByLabelText("硬性要求")).toHaveValue("当前 React 要求");
+
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("分析版本")).toHaveValue(String(olderAnalysis.id)),
+    );
+  });
+
+  it("shows and edits a historical analysis without changing the job current pointer", async () => {
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis, olderAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/40") {
+        return Promise.resolve(jsonResponse({ ...olderAnalysis, risks: ["已复核风险"] }));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("分析版本");
+    fireEvent.change(screen.getByLabelText("分析版本"), {
+      target: { value: String(olderAnalysis.id) },
+    });
+    expect(screen.getByLabelText("硬性要求")).toHaveValue("旧版 React 要求");
+    fireEvent.change(screen.getByLabelText("风险提示"), {
+      target: { value: "已复核风险" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2][0]).toBe("http://127.0.0.1:8000/jd-analyses/40");
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).not.toContain(
+      "http://127.0.0.1:8000/jobs/7",
+    );
+  });
+
+  it("normalizes analysis textarea lines before saving", async () => {
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41") {
+        return Promise.resolve(jsonResponse({ ...currentAnalysis, completeness_status: "incomplete" }));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("硬性要求");
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "  React  \n\n TypeScript \n " },
+    });
+    fireEvent.change(screen.getByLabelText("完整性状态"), {
+      target: { value: "incomplete" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toMatchObject({
+      hard_requirements: ["React", "TypeScript"],
+      completeness_status: "incomplete",
+    });
+  });
+
+  it("refreshes the job and analysis history after confirmed reanalysis", async () => {
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const refreshedJob = { ...jobWithCurrentAnalysis, current_jd_analysis_id: 42 };
+    const newAnalysis = { ...currentAnalysis, id: 42, hard_requirements: ["新版要求"] };
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs" && !init?.method) {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && !init?.method) {
+        const histories = fetchMock.mock.calls.filter(
+          ([calledUrl, calledInit]) =>
+            String(calledUrl) === url && !(calledInit as RequestInit | undefined)?.method,
+        );
+        return Promise.resolve(jsonResponse(histories.length === 1 ? [currentAnalysis] : [newAnalysis, currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(newAnalysis, 201));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7") {
+        return Promise.resolve(jsonResponse(refreshedJob));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("分析版本");
+    fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+
+    expect(await screen.findByDisplayValue("新版要求")).toBeInTheDocument();
+    expect(screen.getByLabelText("分析版本")).toHaveValue("42");
+    expect(window.confirm).toHaveBeenCalled();
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual(
+      expect.arrayContaining([
+        "http://127.0.0.1:8000/jobs/7",
+        "http://127.0.0.1:8000/jobs/7/jd-analyses",
+      ]),
+    );
+  });
+
+  it("keeps the prior analysis when confirmed reanalysis fails", async () => {
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && !init?.method) {
+        return Promise.resolve(jsonResponse([currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ detail: "failed" }, 500));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    expect(await screen.findByDisplayValue("当前 React 要求")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+
+    expect(await screen.findByText("JD 分析失败")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("当前 React 要求")).toBeInTheDocument();
+  });
+
+  it("keeps B's analysis visible when A's history arrives late", async () => {
+    const pendingAHistory = deferred<Response>();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([firstJob, secondJob]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return pendingAHistory.promise;
+      }
+      if (url === "http://127.0.0.1:8000/jobs/8/jd-analyses") {
+        return Promise.resolve(jsonResponse([{ ...currentAnalysis, job_posting_id: 8, hard_requirements: ["B 要求"] }]));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("前端工程师");
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+    expect(await screen.findByDisplayValue("B 要求")).toBeInTheDocument();
+
+    await act(async () => {
+      pendingAHistory.resolve(jsonResponse([currentAnalysis]));
+      await pendingAHistory.promise;
+    });
+
+    expect(screen.getByLabelText("岗位名称")).toHaveValue("全栈工程师");
+    expect(screen.getByDisplayValue("B 要求")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

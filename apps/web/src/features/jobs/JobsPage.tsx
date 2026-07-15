@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import {
   createJDAnalysis,
   createJob,
+  getJob,
   JDAnalysis,
+  JDAnalysisUpdatePayload,
   JobPosting,
   JobPostingCreatePayload,
+  listJDAnalyses,
   listJobs,
+  updateJDAnalysis,
   updateJob,
 } from "../../api/jobs";
 
@@ -27,6 +31,23 @@ const emptyDraft: JobDraft = {
   status: "",
   notes: "",
 };
+
+type AnalysisListField = Exclude<
+  keyof JDAnalysis,
+  "id" | "job_posting_id" | "completeness_status"
+>;
+
+type AnalysisDraft = Pick<JDAnalysis, AnalysisListField | "completeness_status">;
+
+const analysisFields: Array<[AnalysisListField, string]> = [
+  ["hard_requirements", "硬性要求"],
+  ["bonus_requirements", "加分要求"],
+  ["keywords", "关键词"],
+  ["responsibilities", "职责"],
+  ["capability_dimensions", "能力维度"],
+  ["risks", "风险提示"],
+  ["resume_emphasis", "简历侧重点"],
+];
 
 function toDraft(job: JobPosting): JobDraft {
   return {
@@ -60,6 +81,47 @@ function toPayload(draft: JobDraft): JobPostingCreatePayload {
   };
 }
 
+function toAnalysisDraft(analysis: JDAnalysis): AnalysisDraft {
+  return {
+    hard_requirements: analysis.hard_requirements,
+    bonus_requirements: analysis.bonus_requirements,
+    keywords: analysis.keywords,
+    responsibilities: analysis.responsibilities,
+    capability_dimensions: analysis.capability_dimensions,
+    risks: analysis.risks,
+    resume_emphasis: analysis.resume_emphasis,
+    completeness_status: analysis.completeness_status,
+  };
+}
+
+function toAnalysisPayload(draft: AnalysisDraft): JDAnalysisUpdatePayload {
+  const lines = (value: string[]) =>
+    value
+      .join("\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  return {
+    hard_requirements: lines(draft.hard_requirements),
+    bonus_requirements: lines(draft.bonus_requirements),
+    keywords: lines(draft.keywords),
+    responsibilities: lines(draft.responsibilities),
+    capability_dimensions: lines(draft.capability_dimensions),
+    risks: lines(draft.risks),
+    resume_emphasis: lines(draft.resume_emphasis),
+    completeness_status: draft.completeness_status,
+  };
+}
+
+function defaultAnalysis(job: JobPosting, items: JDAnalysis[]): JDAnalysis | null {
+  return (
+    items.find((item) => item.id === job.current_jd_analysis_id) ??
+    items[0] ??
+    null
+  );
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -70,9 +132,16 @@ export function JobsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<JobDraft>({ ...emptyDraft });
   const [isCreating, setIsCreating] = useState(false);
+  const [analyses, setAnalyses] = useState<JDAnalysis[]>([]);
   const [analysis, setAnalysis] = useState<JDAnalysis | null>(null);
+  const analysisRef = useRef<JDAnalysis | null>(null);
+  const [analysisDraft, setAnalysisDraft] = useState<AnalysisDraft | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSavingAnalysis, setIsSavingAnalysis] = useState(false);
+  const [analysisSaveMessage, setAnalysisSaveMessage] = useState<string | null>(null);
+  const [analysisSaveError, setAnalysisSaveError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -92,6 +161,9 @@ export function JobsPage() {
       setSelectedId(firstJob?.id ?? null);
       selectedIdRef.current = firstJob?.id ?? null;
       setDraft(firstJob ? toDraft(firstJob) : null);
+      if (firstJob) {
+        void loadAnalyses(firstJob);
+      }
     } catch {
       setLoadError("岗位加载失败");
     } finally {
@@ -103,9 +175,44 @@ export function JobsPage() {
     setSelectedId(job.id);
     selectedIdRef.current = job.id;
     setDraft(toDraft(job));
+    setAnalyses([]);
     setAnalysis(null);
+    analysisRef.current = null;
+    setAnalysisDraft(null);
     setAnalysisError(null);
+    setAnalysisSaveMessage(null);
+    setAnalysisSaveError(null);
+    setIsAnalysisLoading(false);
     setIsAnalyzing(false);
+    setIsSaving(false);
+    void loadAnalyses(job);
+  }
+
+  function selectAnalysis(nextAnalysis: JDAnalysis | null) {
+    analysisRef.current = nextAnalysis;
+    setAnalysis(nextAnalysis);
+    setAnalysisDraft(nextAnalysis ? toAnalysisDraft(nextAnalysis) : null);
+  }
+
+  async function loadAnalyses(job: JobPosting) {
+    const jobId = job.id;
+    setIsAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const items = await listJDAnalyses(jobId);
+      if (selectedIdRef.current === jobId) {
+        setAnalyses(items);
+        selectAnalysis(defaultAnalysis(job, items));
+      }
+    } catch {
+      if (selectedIdRef.current === jobId) {
+        setAnalysisError("分析历史加载失败");
+      }
+    } finally {
+      if (selectedIdRef.current === jobId) {
+        setIsAnalysisLoading(false);
+      }
+    }
   }
 
   function updateCreateDraft(field: keyof JobDraft, value: string) {
@@ -117,22 +224,28 @@ export function JobsPage() {
     setSaveMessage(null);
   }
 
-  async function startAnalysis(job: JobPosting) {
+  async function startAnalysis(job: JobPosting, requiresConfirmation = false) {
     const jobId = job.id;
+    if (requiresConfirmation && !window.confirm("确认重新分析该岗位的 JD 吗？")) {
+      return;
+    }
+
     setIsAnalyzing(true);
-    setAnalysis(null);
     setAnalysisError(null);
     try {
       const createdAnalysis = await createJDAnalysis(jobId);
+      const [savedJob, items] = await Promise.all([
+        getJob(jobId),
+        listJDAnalyses(jobId),
+      ]);
       setJobs((current) =>
         current.map((item) =>
-          item.id === jobId
-            ? { ...item, current_jd_analysis_id: createdAnalysis.id }
-            : item,
+          item.id === jobId ? savedJob : item,
         ),
       );
       if (selectedIdRef.current === jobId) {
-        setAnalysis(createdAnalysis);
+        setAnalyses(items);
+        selectAnalysis(items.find((item) => item.id === createdAnalysis.id) ?? createdAnalysis);
       }
     } catch {
       if (selectedIdRef.current === jobId) {
@@ -167,7 +280,56 @@ export function JobsPage() {
   function retryAnalysis() {
     const job = jobs.find((item) => item.id === selectedId);
     if (job) {
-      void startAnalysis(job);
+      void startAnalysis(job, true);
+    }
+  }
+
+  function updateAnalysisDraft(field: AnalysisListField, value: string) {
+    setAnalysisDraft((current) =>
+      current ? { ...current, [field]: value.split("\n") } : current,
+    );
+    setAnalysisSaveMessage(null);
+  }
+
+  function updateAnalysisCompleteness(value: string) {
+    setAnalysisDraft((current) =>
+      current ? { ...current, completeness_status: value } : current,
+    );
+    setAnalysisSaveMessage(null);
+  }
+
+  function chooseAnalysis(id: number) {
+    const nextAnalysis = analyses.find((item) => item.id === id) ?? null;
+    selectAnalysis(nextAnalysis);
+    setAnalysisSaveError(null);
+    setAnalysisSaveMessage(null);
+  }
+
+  async function saveAnalysis() {
+    if (!analysis || !analysisDraft || selectedId === null) return;
+
+    const jobId = selectedId;
+    const analysisId = analysis.id;
+    const payload = toAnalysisPayload(analysisDraft);
+    setIsSavingAnalysis(true);
+    setAnalysisSaveError(null);
+    try {
+      const savedAnalysis = await updateJDAnalysis(analysisId, payload);
+      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+        setAnalyses((current) =>
+          current.map((item) => (item.id === analysisId ? savedAnalysis : item)),
+        );
+        selectAnalysis(savedAnalysis);
+        setAnalysisSaveMessage("分析已保存");
+      }
+    } catch {
+      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+        setAnalysisSaveError("分析保存失败");
+      }
+    } finally {
+      if (selectedIdRef.current === jobId && analysisRef.current?.id === analysisId) {
+        setIsSavingAnalysis(false);
+      }
     }
   }
 
@@ -192,7 +354,9 @@ export function JobsPage() {
         setSaveError("岗位保存失败");
       }
     } finally {
-      setIsSaving(false);
+      if (selectedIdRef.current === jobId) {
+        setIsSaving(false);
+      }
     }
   }
 
@@ -335,37 +499,76 @@ export function JobsPage() {
                 />
               </label>
             </div>
-            {analysis ? (
+            {isAnalysisLoading ? <p className="muted">正在加载分析历史...</p> : null}
+            {analysis && analysisDraft ? (
               <section className="job-analysis-panel">
-                <h3>JD 分析</h3>
-                <p>{analysis.completeness_status}</p>
-                <div className="analysis-grid">
-                  {(
-                    [
-                      ["硬性要求", analysis.hard_requirements],
-                      ["加分要求", analysis.bonus_requirements],
-                      ["关键词", analysis.keywords],
-                      ["职责", analysis.responsibilities],
-                      ["能力维度", analysis.capability_dimensions],
-                      ["风险提示", analysis.risks],
-                      ["简历侧重点", analysis.resume_emphasis],
-                    ] as Array<[string, string[]]>
-                  ).map(([title, items]) => (
-                    <div key={title}>
-                      <h4>{title}</h4>
-                      {items.length > 0 ? (
-                        <ul>
-                          {items.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="muted">暂无</p>
-                      )}
-                    </div>
+                <div className="panel-heading">
+                  <div>
+                    <h3>JD 分析</h3>
+                    <p>选择版本进行查看或编辑</p>
+                  </div>
+                </div>
+                <div className="analysis-toolbar">
+                  <label>
+                    分析版本
+                    <select
+                      onChange={(event) => chooseAnalysis(Number(event.target.value))}
+                      value={analysis.id}
+                    >
+                      {analyses.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          分析 #{item.id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    完整性状态
+                    <select
+                      onChange={(event) => updateAnalysisCompleteness(event.target.value)}
+                      value={analysisDraft.completeness_status}
+                    >
+                      <option value="complete">complete</option>
+                      <option value="incomplete">incomplete</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="analysis-grid analysis-edit-grid">
+                  {analysisFields.map(([field, title]) => (
+                    <label key={field}>
+                      {title}
+                      <textarea
+                        onChange={(event) => updateAnalysisDraft(field, event.target.value)}
+                        value={analysisDraft[field].join("\n")}
+                      />
+                    </label>
                   ))}
                 </div>
+                <div className="analysis-actions">
+                  <button
+                    className="primary-button"
+                    disabled={isSavingAnalysis}
+                    onClick={() => void saveAnalysis()}
+                    type="button"
+                  >
+                    <Save aria-hidden="true" size={16} />
+                    {isSavingAnalysis ? "保存中" : "保存分析"}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    disabled={isAnalyzing}
+                    onClick={retryAnalysis}
+                    type="button"
+                  >
+                    重新分析
+                  </button>
+                </div>
+                {analysisSaveError ? <p className="inline-error">{analysisSaveError}</p> : null}
+                {analysisSaveMessage ? <p className="save-message">{analysisSaveMessage}</p> : null}
               </section>
+            ) : null}
+            {!isAnalysisLoading && !analysis && !analysisError ? (
+              <p className="muted">暂无分析记录</p>
             ) : null}
             {analysisError ? (
               <div className="inline-error">

@@ -187,11 +187,35 @@ button {
   margin-top: 14px;
 }
 
-.analysis-grid ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: #475467;
-  line-height: 1.55;
+.analysis-toolbar,
+.analysis-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.analysis-toolbar label {
+  min-width: min(220px, 100%);
+}
+
+.analysis-edit-grid textarea {
+  min-height: 108px;
+  line-height: 1.5;
+}
+
+.analysis-actions {
+  align-items: center;
+}
+
+select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #20242c;
+  padding: 9px 10px;
 }
 
 .experience-list-panel,
@@ -269,6 +293,20 @@ button {
   background: #2457d6;
   border-color: #2457d6;
   color: #ffffff;
+}
+
+.secondary-button {
+  min-height: 36px;
+  border: 1px solid #c9d3e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #253044;
+  padding: 0 12px;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .primary-button:disabled {
