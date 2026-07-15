@@ -1,5 +1,5 @@
 import { Plus, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   createJDAnalysis,
@@ -63,8 +63,10 @@ function toPayload(draft: JobDraft): JobPostingCreatePayload {
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selectedIdRef = useRef<number | null>(null);
   const [draft, setDraft] = useState<JobDraft | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<JobDraft>({ ...emptyDraft });
   const [isCreating, setIsCreating] = useState(false);
@@ -77,24 +79,33 @@ export function JobsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const items = await listJobs();
-        setJobs(items);
-        const firstJob = items[0];
-        setSelectedId(firstJob?.id ?? null);
-        setDraft(firstJob ? toDraft(firstJob) : null);
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+    void loadJobs();
   }, []);
+
+  async function loadJobs() {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const items = await listJobs();
+      setJobs(items);
+      const firstJob = items[0];
+      setSelectedId(firstJob?.id ?? null);
+      selectedIdRef.current = firstJob?.id ?? null;
+      setDraft(firstJob ? toDraft(firstJob) : null);
+    } catch {
+      setLoadError("岗位加载失败");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   function selectJob(job: JobPosting) {
     setSelectedId(job.id);
+    selectedIdRef.current = job.id;
     setDraft(toDraft(job));
     setAnalysis(null);
     setAnalysisError(null);
+    setIsAnalyzing(false);
   }
 
   function updateCreateDraft(field: keyof JobDraft, value: string) {
@@ -107,23 +118,30 @@ export function JobsPage() {
   }
 
   async function startAnalysis(job: JobPosting) {
+    const jobId = job.id;
     setIsAnalyzing(true);
     setAnalysis(null);
     setAnalysisError(null);
     try {
-      const createdAnalysis = await createJDAnalysis(job.id);
-      setAnalysis(createdAnalysis);
+      const createdAnalysis = await createJDAnalysis(jobId);
       setJobs((current) =>
         current.map((item) =>
-          item.id === job.id
+          item.id === jobId
             ? { ...item, current_jd_analysis_id: createdAnalysis.id }
             : item,
         ),
       );
+      if (selectedIdRef.current === jobId) {
+        setAnalysis(createdAnalysis);
+      }
     } catch {
-      setAnalysisError("JD 分析失败");
+      if (selectedIdRef.current === jobId) {
+        setAnalysisError("JD 分析失败");
+      }
     } finally {
-      setIsAnalyzing(false);
+      if (selectedIdRef.current === jobId) {
+        setIsAnalyzing(false);
+      }
     }
   }
 
@@ -134,6 +152,7 @@ export function JobsPage() {
       const savedJob = await createJob(toPayload(createDraft));
       setJobs((current) => [...current, savedJob]);
       setSelectedId(savedJob.id);
+      selectedIdRef.current = savedJob.id;
       setDraft(toDraft(savedJob));
       setCreateDraft({ ...emptyDraft });
       setIsCreateDialogOpen(false);
@@ -155,15 +174,19 @@ export function JobsPage() {
   async function saveJob() {
     if (!draft || selectedId === null) return;
 
+    const jobId = selectedId;
+    const payload = toPayload(draft);
     setIsSaving(true);
     setSaveError(null);
     try {
-      const savedJob = await updateJob(selectedId, toPayload(draft));
+      const savedJob = await updateJob(jobId, payload);
       setJobs((current) =>
         current.map((item) => (item.id === savedJob.id ? savedJob : item)),
       );
-      setDraft(toDraft(savedJob));
-      setSaveMessage("岗位已保存");
+      if (selectedIdRef.current === jobId) {
+        setDraft(toDraft(savedJob));
+        setSaveMessage("岗位已保存");
+      }
     } catch {
       setSaveError("岗位保存失败");
     } finally {
@@ -190,6 +213,14 @@ export function JobsPage() {
         </div>
 
         {isLoading ? <p className="muted">正在加载岗位...</p> : null}
+        {loadError ? (
+          <div className="inline-error">
+            <strong>{loadError}</strong>
+            <button onClick={() => void loadJobs()} type="button">
+              重试
+            </button>
+          </div>
+        ) : null}
         <div className="experience-list">
           {jobs.map((job) => (
             <button

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../App";
@@ -35,6 +35,15 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -66,6 +75,141 @@ describe("JobsPage", () => {
 
     expect(screen.getByLabelText("岗位名称")).toHaveValue("全栈工程师");
     expect(screen.getByLabelText("JD 原文")).toHaveValue("负责 Web 平台交付");
+  });
+
+  it("shows a Chinese error and retries when jobs fail to load", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ detail: "boom" }, 500))
+      .mockResolvedValueOnce(jsonResponse([firstJob]));
+
+    render(<JobsPage />);
+
+    expect(await screen.findByText("岗位加载失败")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+
+    expect(await screen.findByDisplayValue("前端工程师")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps B selected and preserves B's draft when A's save resolves late", async () => {
+    const pendingSave = deferred<Response>();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([firstJob, secondJob]))
+      .mockImplementationOnce(() => pendingSave.promise)
+      .mockResolvedValueOnce(jsonResponse({ ...secondJob, company: "B saved" }));
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("前端工程师");
+    fireEvent.change(screen.getByLabelText("公司"), { target: { value: "A pending" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存岗位" }));
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+    fireEvent.change(screen.getByLabelText("公司"), { target: { value: "B draft" } });
+
+    pendingSave.resolve(jsonResponse({ ...firstJob, company: "A saved" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("公司")).toHaveValue("B draft"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存岗位" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2][0]).toBe("http://127.0.0.1:8000/jobs/8");
+    expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toMatchObject({
+      company: "B draft",
+      title: "全栈工程师",
+    });
+  });
+
+  it("does not show A's late successful analysis after selecting B", async () => {
+    const pendingAnalysis = deferred<Response>();
+    const createdJob = {
+      ...firstJob,
+      id: 9,
+      title: "A role",
+      raw_jd_text: "A JD",
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([secondJob]))
+      .mockResolvedValueOnce(jsonResponse(createdJob, 201))
+      .mockImplementationOnce(() => pendingAnalysis.promise);
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("全栈工程师");
+    fireEvent.click(screen.getByRole("button", { name: "新增岗位" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("JD 原文"), {
+      target: { value: "A JD" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "创建岗位" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+
+    await act(async () => {
+      pendingAnalysis.resolve(
+        jsonResponse({
+          id: 31,
+          job_posting_id: 9,
+          hard_requirements: ["A only requirement"],
+          bonus_requirements: [],
+          keywords: [],
+          responsibilities: [],
+          capability_dimensions: [],
+          risks: [],
+          resume_emphasis: [],
+          completeness_status: "complete",
+        }),
+      );
+      await pendingAnalysis.promise;
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("岗位名称")).toHaveValue("全栈工程师"),
+    );
+    expect(screen.queryByText("A only requirement")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "JD 分析" })).not.toBeInTheDocument();
+  });
+
+  it("does not show A's late failed analysis after selecting B", async () => {
+    const pendingAnalysis = deferred<Response>();
+    const createdJob = {
+      ...firstJob,
+      id: 9,
+      title: "A role",
+      raw_jd_text: "A JD",
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([secondJob]))
+      .mockResolvedValueOnce(jsonResponse(createdJob, 201))
+      .mockImplementationOnce(() => pendingAnalysis.promise);
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("全栈工程师");
+    fireEvent.click(screen.getByRole("button", { name: "新增岗位" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("JD 原文"), {
+      target: { value: "A JD" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "创建岗位" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+
+    await act(async () => {
+      pendingAnalysis.resolve(jsonResponse({ detail: "analysis failed" }, 500));
+      await pendingAnalysis.promise;
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("岗位名称")).toHaveValue("全栈工程师"),
+    );
+    expect(screen.queryByText("JD 分析失败")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重新分析" })).not.toBeInTheDocument();
   });
 
   it("creates a job before starting its JD analysis", async () => {

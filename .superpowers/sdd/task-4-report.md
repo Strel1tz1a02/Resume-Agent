@@ -28,3 +28,26 @@
 - 修改范围限于任务指定的前端文件和本报告；既有画像与技能流程未改动。
 - 复用现有 8px 圆角、面板、表单和响应式断点；移动端将岗位布局和分析网格收敛为单列。
 - 构建期间发现分析分类字面量被推断为联合数组，已通过显式元组类型修正，并在最终全量测试与 build 中验证。
+
+## Review Fixes: Async Races And Loading Recovery
+
+### RED/GREEN
+
+1. RED: 延迟 A 的保存响应后切换到 B，A 的响应覆盖了 B 草稿；下一次对 `/jobs/8` 的保存实际发送了 A 的 payload。
+   GREEN: 保存操作固定请求时的岗位 ID 与 payload，并且仅在该岗位仍被选中时回写详情草稿与成功提示。
+2. RED: A 的 JD 分析请求尚未返回时切换到 B，A 的成功结果会显示在 B 的详情中；A 的失败也会在 B 中显示 `JD 分析失败` 和重试按钮。
+   GREEN: 分析请求固定岗位 ID，成功、失败和加载状态只在该岗位仍为当前选择时回写；岗位列表的分析 ID 仍可安全更新。
+3. RED: `listJobs` 返回失败响应时产生未处理 rejection，页面没有 `岗位加载失败` 或重试入口。
+   GREEN: `loadJobs` 捕获失败并显示中文错误与 `重试` 按钮，重试成功后恢复岗位列表与详情。
+
+### Verification
+
+- Focused: `npx.cmd vitest run --no-cache src/features/jobs/JobsPage.test.tsx` passed (9 tests).
+- Full: `npx.cmd vitest run --no-cache` passed (3 files, 21 tests).
+- Build: `npm.cmd run build` passed.
+
+### Self Review
+
+- 保存回调不会再根据过期闭包覆盖新选择的草稿，也不会将旧岗位 payload 写入新岗位。
+- 两个 deferred 分析测试分别覆盖 A 成功与失败在切换到 B 后均不可见。
+- 加载异常不再逃逸为未处理 rejection；重试复用同一个受控加载路径。
