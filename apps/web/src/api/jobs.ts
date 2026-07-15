@@ -15,10 +15,13 @@ export type JobPosting = {
   current_jd_analysis_id: number | null;
 };
 
-export type JobPostingCreatePayload = Omit<
-  JobPosting,
-  "id" | "current_jd_analysis_id"
->;
+type JobPostingPayload = Omit<JobPosting, "id" | "current_jd_analysis_id">;
+
+export type JobPostingCreatePayload = Pick<
+  JobPostingPayload,
+  "raw_jd_text"
+> &
+  Partial<Omit<JobPostingPayload, "raw_jd_text">>;
 
 export type JobPostingUpdatePayload = Partial<JobPostingCreatePayload>;
 
@@ -35,9 +38,16 @@ export type JDAnalysis = {
   completeness_status: string;
 };
 
-export type JDAnalysisUpdatePayload = Partial<
-  Omit<JDAnalysis, "id" | "job_posting_id">
->;
+export type JDAnalysisUpdatePayload = {
+  hard_requirements?: string[] | null;
+  bonus_requirements?: string[] | null;
+  keywords?: string[] | null;
+  responsibilities?: string[] | null;
+  capability_dimensions?: string[] | null;
+  risks?: string[] | null;
+  resume_emphasis?: string[] | null;
+  completeness_status?: string | null;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

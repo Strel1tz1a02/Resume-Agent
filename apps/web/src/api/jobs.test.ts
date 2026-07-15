@@ -93,6 +93,20 @@ describe("jobs API client", () => {
     );
   });
 
+  it("allows creating a job with only raw JD text", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(job, 201));
+
+    await expect(createJob({ raw_jd_text: "JD" })).resolves.toEqual(job);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/jobs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ raw_jd_text: "JD" }),
+      }),
+    );
+  });
+
   it("gets and updates a job at its item endpoint", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(job))
@@ -173,6 +187,30 @@ describe("jobs API client", () => {
     expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("method");
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      "http://127.0.0.1:8000/jd-analyses/11",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    );
+  });
+
+  it("allows nullable JD analysis update fields and sends nulls", async () => {
+    const payload = {
+      hard_requirements: null,
+      bonus_requirements: null,
+      keywords: null,
+      responsibilities: null,
+      capability_dimensions: null,
+      risks: null,
+      resume_emphasis: null,
+      completeness_status: null,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(analysis));
+
+    await expect(updateJDAnalysis(11, payload)).resolves.toEqual(analysis);
+
+    expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/jd-analyses/11",
       expect.objectContaining({
         method: "PUT",
