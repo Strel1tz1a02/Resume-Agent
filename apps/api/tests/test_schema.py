@@ -23,7 +23,8 @@ def test_core_tables_have_user_id() -> None:
 
 def test_cross_record_relationship_columns_match_spec() -> None:
     assert "published_at" in Base.metadata.tables["job_postings"].columns
-    assert "jd_analysis_id" in Base.metadata.tables["job_postings"].columns
+    assert "current_jd_analysis_id" in Base.metadata.tables["job_postings"].columns
+    assert "jd_analysis_id" not in Base.metadata.tables["job_postings"].columns
     assert "job_posting_id" in Base.metadata.tables["jd_analyses"].columns
     assert "jd_analysis_id" in Base.metadata.tables["match_reports"].columns
     assert "candidate_skill_ids" in Base.metadata.tables["match_reports"].columns

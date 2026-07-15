@@ -176,7 +176,7 @@
 - 备注。
 - `JDAnalysis` ID。
 
-`JobPosting` 可以先于 `JDAnalysis` 存在。完成分析后，系统回填 `jd_analysis_id`。
+`JobPosting` 可以先于 `JDAnalysis` 存在。完成分析后，系统回填 `current_jd_analysis_id`。
 
 ### JDAnalysis
 

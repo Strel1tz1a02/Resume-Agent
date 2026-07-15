@@ -89,7 +89,7 @@ class JobPosting(UserOwnedMixin, TimestampMixin, Base):
     job_type: Mapped[str | None] = mapped_column(String(80))
     status: Mapped[str | None] = mapped_column(String(80))
     notes: Mapped[str | None] = mapped_column(Text)
-    jd_analysis_id: Mapped[int | None] = mapped_column(Integer)
+    current_jd_analysis_id: Mapped[int | None] = mapped_column(Integer)
 
 
 class JDAnalysis(UserOwnedMixin, TimestampMixin, Base):
