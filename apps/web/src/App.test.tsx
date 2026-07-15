@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -17,6 +17,15 @@ const existingExperience = {
   metrics: "1 个本地 Web App",
 };
 
+const existingSkillEvidence = {
+  id: 12,
+  skill_name: "Python",
+  proficiency: "熟练",
+  experience_ids: [7],
+  evidence_summary: "在校园招聘助手项目中使用 Python 构建 API",
+  outcome: "完成本地后端服务",
+};
+
 function mockJsonResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -26,6 +35,7 @@ function mockJsonResponse(body: unknown, status = 200): Response {
 }
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -112,5 +122,88 @@ describe("画像库页面", () => {
 
     expect(await screen.findByText("经历加载失败")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
+});
+
+describe("技能证据页面", () => {
+  it("loads, edits, and creates skill evidences without requiring experiences", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse([]))
+      .mockResolvedValueOnce(mockJsonResponse([existingSkillEvidence]))
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          ...existingSkillEvidence,
+          outcome: "完成画像 API 和前端联调",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          {
+            id: 13,
+            skill_name: "数据分析",
+            proficiency: "入门",
+            experience_ids: [],
+            evidence_summary: "课程项目中完成数据清洗和可视化",
+            outcome: "形成分析报告",
+          },
+          201,
+        ),
+      );
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "技能证据" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "技能证据" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Python")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Python 熟练" }));
+    expect(screen.getByLabelText("技能名称")).toHaveValue("Python");
+    expect(screen.getByLabelText("关联经历 ID")).toHaveValue("7");
+
+    fireEvent.change(screen.getByLabelText("产出/成果"), {
+      target: { value: "完成画像 API 和前端联调" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存技能证据" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/skill-evidences/12",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining("完成画像 API 和前端联调"),
+      }),
+    );
+    expect(await screen.findByText("技能证据已保存")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "新增技能证据" }));
+    fireEvent.change(screen.getByLabelText("技能名称"), {
+      target: { value: "数据分析" },
+    });
+    fireEvent.change(screen.getByLabelText("熟练度"), {
+      target: { value: "入门" },
+    });
+    fireEvent.change(screen.getByLabelText("关联经历 ID"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("证据摘要"), {
+      target: { value: "课程项目中完成数据清洗和可视化" },
+    });
+    fireEvent.change(screen.getByLabelText("产出/成果"), {
+      target: { value: "形成分析报告" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存技能证据" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/skill-evidences",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"experience_ids":[]'),
+      }),
+    );
   });
 });

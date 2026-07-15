@@ -225,6 +225,10 @@ button {
   margin-top: 18px;
 }
 
+.wide-field {
+  grid-column: 1 / -1;
+}
+
 label,
 .field-block {
   display: grid;

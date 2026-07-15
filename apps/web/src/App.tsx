@@ -1,5 +1,6 @@
 import {
   Bot,
+  BadgeCheck,
   BriefcaseBusiness,
   FileText,
   Plus,
@@ -17,14 +18,37 @@ import {
   listExperiences,
   updateExperience,
 } from "./api/experiences";
+import {
+  createSkillEvidence,
+  listSkillEvidences,
+  SkillEvidence,
+  SkillEvidencePayload,
+  updateSkillEvidence,
+} from "./api/skillEvidences";
 
-const navItems = [
-  { label: "岗位", icon: BriefcaseBusiness },
-  { label: "画像库", icon: UserRound, active: true },
-  { label: "简历版本", icon: FileText },
-  { label: "投递清单", icon: Send },
-  { label: "配置", icon: Settings },
+type ActivePage = "jobs" | "profile" | "skills" | "resumes" | "applications" | "settings";
+
+const navItems: Array<{
+  label: string;
+  icon: typeof BriefcaseBusiness;
+  page: ActivePage;
+}> = [
+  { label: "岗位", icon: BriefcaseBusiness, page: "jobs" },
+  { label: "画像库", icon: UserRound, page: "profile" },
+  { label: "技能证据", icon: BadgeCheck, page: "skills" },
+  { label: "简历版本", icon: FileText, page: "resumes" },
+  { label: "投递清单", icon: Send, page: "applications" },
+  { label: "配置", icon: Settings, page: "settings" },
 ];
+
+const pageMeta: Record<ActivePage, { title: string; status: string }> = {
+  jobs: { title: "岗位", status: "后续阶段实现" },
+  profile: { title: "画像库", status: "连接本地画像 API" },
+  skills: { title: "技能证据", status: "维护独立技能事实" },
+  resumes: { title: "简历版本", status: "后续阶段实现" },
+  applications: { title: "投递清单", status: "后续阶段实现" },
+  settings: { title: "配置", status: "后续阶段实现" },
+};
 
 const emptyExperience: ExperiencePayload = {
   type: "project",
@@ -39,7 +63,19 @@ const emptyExperience: ExperiencePayload = {
   metrics: "",
 };
 
+const emptySkillEvidence: SkillEvidencePayload = {
+  skill_name: "",
+  proficiency: "",
+  experience_ids: [],
+  evidence_summary: "",
+  outcome: "",
+};
+
 type DraftExperience = ExperiencePayload & { id?: number };
+type SkillEvidenceDraft = Omit<SkillEvidencePayload, "experience_ids"> & {
+  id?: number;
+  experience_ids_text: string;
+};
 
 function toDraft(experience: Experience): DraftExperience {
   return {
@@ -72,6 +108,38 @@ function toPayload(draft: DraftExperience): ExperiencePayload {
   };
 }
 
+function formatExperienceIds(experienceIds: number[]): string {
+  return experienceIds.join(", ");
+}
+
+function parseExperienceIds(value: string): number[] {
+  return value
+    .split(",")
+    .map((item) => Number.parseInt(item.trim(), 10))
+    .filter((item) => Number.isInteger(item));
+}
+
+function toSkillDraft(skillEvidence: SkillEvidence): SkillEvidenceDraft {
+  return {
+    id: skillEvidence.id,
+    skill_name: skillEvidence.skill_name,
+    proficiency: skillEvidence.proficiency ?? "",
+    experience_ids_text: formatExperienceIds(skillEvidence.experience_ids),
+    evidence_summary: skillEvidence.evidence_summary ?? "",
+    outcome: skillEvidence.outcome ?? "",
+  };
+}
+
+function toSkillPayload(draft: SkillEvidenceDraft): SkillEvidencePayload {
+  return {
+    skill_name: draft.skill_name.trim() || "未命名技能",
+    proficiency: draft.proficiency || null,
+    experience_ids: parseExperienceIds(draft.experience_ids_text),
+    evidence_summary: draft.evidence_summary || null,
+    outcome: draft.outcome || null,
+  };
+}
+
 function getAgentQuestions(draft: DraftExperience | null): string[] {
   if (!draft) {
     return ["先从左侧选择一段经历，或者点击 + 新增一段经历。"];
@@ -90,6 +158,7 @@ function getAgentQuestions(draft: DraftExperience | null): string[] {
 
 // export 表示这个函数可以被其他文件导入
 export function App() {
+  const [activePage, setActivePage] = useState<ActivePage>("profile");
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<DraftExperience | null>(null);
@@ -97,6 +166,14 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [skillEvidences, setSkillEvidences] = useState<SkillEvidence[]>([]);
+  const [selectedSkillId, setSelectedSkillId] = useState<number | "new" | null>(null);
+  const [skillDraft, setSkillDraft] = useState<SkillEvidenceDraft | null>(null);
+  const [isSkillLoading, setIsSkillLoading] = useState(false);
+  const [isSkillSaving, setIsSkillSaving] = useState(false);
+  const [skillError, setSkillError] = useState<string | null>(null);
+  const [skillSaveMessage, setSkillSaveMessage] = useState<string | null>(null);
+  const [hasLoadedSkills, setHasLoadedSkills] = useState(false);
 
   async function loadExperiences() {
     setIsLoading(true);
@@ -122,11 +199,43 @@ export function App() {
     void loadExperiences();
   }, []);
 
+  async function loadSkillEvidences() {
+    setIsSkillLoading(true);
+    setSkillError(null);
+    try {
+      const items = await listSkillEvidences();
+      setSkillEvidences(items);
+      setHasLoadedSkills(true);
+      if (items.length > 0) {
+        setSelectedSkillId(items[0].id);
+        setSkillDraft(toSkillDraft(items[0]));
+      } else {
+        setSelectedSkillId(null);
+        setSkillDraft(null);
+      }
+    } catch {
+      setSkillError("技能证据加载失败");
+    } finally {
+      setIsSkillLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activePage === "skills" && !hasLoadedSkills) {
+      void loadSkillEvidences();
+    }
+  }, [activePage, hasLoadedSkills]);
+
   const selectedExperience = useMemo(
     () => experiences.find((item) => item.id === selectedId) ?? null,
     [experiences, selectedId],
   );
   const agentQuestions = getAgentQuestions(draft);
+  const selectedSkillEvidence = useMemo(
+    () => skillEvidences.find((item) => item.id === selectedSkillId) ?? null,
+    [skillEvidences, selectedSkillId],
+  );
+  const currentPageMeta = pageMeta[activePage];
 
   function selectExperience(experience: Experience) {
     setSelectedId(experience.id);
@@ -172,6 +281,56 @@ export function App() {
     }
   }
 
+  function selectSkillEvidence(skillEvidence: SkillEvidence) {
+    setSelectedSkillId(skillEvidence.id);
+    setSkillDraft(toSkillDraft(skillEvidence));
+    setSkillSaveMessage(null);
+  }
+
+  function createSkillDraft() {
+    setSelectedSkillId("new");
+    setSkillDraft({
+      ...emptySkillEvidence,
+      experience_ids_text: "",
+    });
+    setSkillSaveMessage(null);
+  }
+
+  function updateSkillDraft(
+    field: keyof Omit<SkillEvidenceDraft, "id">,
+    value: string,
+  ) {
+    setSkillDraft((current) => (current ? { ...current, [field]: value } : current));
+    setSkillSaveMessage(null);
+  }
+
+  async function saveSkillDraft() {
+    if (!skillDraft) return;
+
+    setIsSkillSaving(true);
+    setSkillError(null);
+    try {
+      const payload = toSkillPayload(skillDraft);
+      const saved =
+        selectedSkillId === "new" || skillDraft.id === undefined
+          ? await createSkillEvidence(payload)
+          : await updateSkillEvidence(skillDraft.id, payload);
+      setSkillEvidences((current) => {
+        const exists = current.some((item) => item.id === saved.id);
+        return exists
+          ? current.map((item) => (item.id === saved.id ? saved : item))
+          : [...current, saved];
+      });
+      setSelectedSkillId(saved.id);
+      setSkillDraft(toSkillDraft(saved));
+      setSkillSaveMessage("技能证据已保存");
+    } catch {
+      setSkillError("技能证据保存失败");
+    } finally {
+      setIsSkillSaving(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -186,8 +345,9 @@ export function App() {
         <nav aria-label="主导航" className="nav-list">
           {navItems.map((item) => (
             <button
-              className={item.active ? "nav-item nav-item-active" : "nav-item"}
+              className={activePage === item.page ? "nav-item nav-item-active" : "nav-item"}
               key={item.label}
+              onClick={() => setActivePage(item.page)}
               type="button"
             >
               <item.icon aria-hidden="true" size={18} />
@@ -201,11 +361,12 @@ export function App() {
         <section className="workspace-header">
           <div>
             <p className="eyebrow">阶段 3</p>
-            <h2>画像库</h2>
+            <h2>{currentPageMeta.title}</h2>
           </div>
-          <span className="status-pill">连接本地画像 API</span>
+          <span className="status-pill">{currentPageMeta.status}</span>
         </section>
 
+        {activePage === "profile" ? (
         <section className="profile-workbench">
           <div className="experience-list-panel">
             <div className="panel-heading">
@@ -370,24 +531,185 @@ export function App() {
             {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
           </form>
         </section>
+        ) : null}
+
+        {activePage === "skills" ? (
+          <section className="profile-workbench">
+            <div className="experience-list-panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>技能证据列表</h3>
+                  <p>{skillEvidences.length} 条已保存技能证据</p>
+                </div>
+                <button
+                  aria-label="新增技能证据"
+                  className="icon-button"
+                  onClick={createSkillDraft}
+                  type="button"
+                >
+                  <Plus aria-hidden="true" size={18} />
+                </button>
+              </div>
+
+              {isSkillLoading ? <p className="muted">正在加载技能证据...</p> : null}
+              {skillError ? (
+                <div className="inline-error">
+                  <strong>{skillError}</strong>
+                  <button onClick={loadSkillEvidences} type="button">
+                    重试
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="experience-list">
+                {skillEvidences.map((skillEvidence) => (
+                  <button
+                    aria-label={`${skillEvidence.skill_name} ${skillEvidence.proficiency ?? ""}`.trim()}
+                    className={
+                      skillEvidence.id === selectedSkillId
+                        ? "experience-list-item selected"
+                        : "experience-list-item"
+                    }
+                    key={skillEvidence.id}
+                    onClick={() => selectSkillEvidence(skillEvidence)}
+                    type="button"
+                  >
+                    <span>{skillEvidence.skill_name}</span>
+                    <small>{skillEvidence.proficiency || "未填写熟练度"}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form
+              className="experience-detail-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveSkillDraft();
+              }}
+            >
+              <div className="panel-heading">
+                <div>
+                  <h3>技能证据详情</h3>
+                  <p>
+                    {selectedSkillEvidence
+                      ? `正在维护「${selectedSkillEvidence.skill_name}」`
+                      : "选择或新增一条技能证据"}
+                  </p>
+                </div>
+                <button
+                  className="primary-button"
+                  disabled={!skillDraft || isSkillSaving}
+                  type="submit"
+                >
+                  <Save aria-hidden="true" size={16} />
+                  {isSkillSaving ? "保存中" : "保存技能证据"}
+                </button>
+              </div>
+
+              {skillDraft ? (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      技能名称
+                      <input
+                        onChange={(event) =>
+                          updateSkillDraft("skill_name", event.target.value)
+                        }
+                        value={skillDraft.skill_name}
+                      />
+                    </label>
+                    <label>
+                      熟练度
+                      <input
+                        onChange={(event) =>
+                          updateSkillDraft("proficiency", event.target.value)
+                        }
+                        value={skillDraft.proficiency ?? ""}
+                      />
+                    </label>
+                    <label className="wide-field">
+                      关联经历 ID
+                      <input
+                        onChange={(event) =>
+                          updateSkillDraft("experience_ids_text", event.target.value)
+                        }
+                        placeholder="可选，例如：1, 2"
+                        value={skillDraft.experience_ids_text}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="field-block">
+                    证据摘要
+                    <textarea
+                      onChange={(event) =>
+                        updateSkillDraft("evidence_summary", event.target.value)
+                      }
+                      value={skillDraft.evidence_summary ?? ""}
+                    />
+                  </label>
+                  <label className="field-block">
+                    产出/成果
+                    <textarea
+                      onChange={(event) => updateSkillDraft("outcome", event.target.value)}
+                      value={skillDraft.outcome ?? ""}
+                    />
+                  </label>
+                </>
+              ) : (
+                <div className="empty-state compact">
+                  <h3>还没有选中技能证据</h3>
+                  <p>点击左侧 + 新增技能证据，或者选择一条已有技能证据继续维护。</p>
+                </div>
+              )}
+
+              {skillSaveMessage ? <p className="save-message">{skillSaveMessage}</p> : null}
+            </form>
+          </section>
+        ) : null}
+
+        {activePage !== "profile" && activePage !== "skills" ? (
+          <section className="empty-state">
+            <h3>{currentPageMeta.title}还没有开始实现</h3>
+            <p>当前阶段先完成画像库和技能证据管理，后续会继续接入这个模块。</p>
+          </section>
+        ) : null}
       </main>
 
       <aside aria-label="Agent 面板" className="agent-panel">
         <div className="agent-title">
           <Bot aria-hidden="true" size={20} />
-          <strong>经历补全 Agent</strong>
+          <strong>{activePage === "skills" ? "技能证据 Agent" : "经历补全 Agent"}</strong>
         </div>
         <div className="agent-message">
-          {draft?.name ? (
+          {activePage === "skills" ? (
+            <>
+              <p>
+                {skillDraft?.skill_name
+                  ? `我会围绕「${skillDraft.skill_name}」补充证据。`
+                  : "我会帮助你把技能写成可复用的事实证据。"}
+              </p>
+              <ul>
+                <li>技能证据可以不关联具体经历。</li>
+                <li>后续岗位匹配会同时参考经历和技能证据。</li>
+                <li>当前默认保存内容都是真实可信事实。</li>
+              </ul>
+            </>
+          ) : activePage === "profile" && draft?.name ? (
             <p>我会围绕「{draft.name}」继续追问。</p>
-          ) : (
+          ) : activePage === "profile" ? (
             <p>我会根据当前选中的经历生成补全问题。</p>
+          ) : (
+            <p>这个模块会在后续阶段接入对应的 Agent 能力。</p>
           )}
-          <ul>
-            {agentQuestions.map((question) => (
-              <li key={question}>{question}</li>
-            ))}
-          </ul>
+          {activePage === "profile" ? (
+            <ul>
+              {agentQuestions.map((question) => (
+                <li key={question}>{question}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </aside>
     </div>
