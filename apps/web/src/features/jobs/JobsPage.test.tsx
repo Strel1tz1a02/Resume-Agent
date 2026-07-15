@@ -765,4 +765,64 @@ describe("JobsPage", () => {
     );
     expect(screen.getByRole("button", { name: "保存分析" })).toBeEnabled();
   });
+
+  it("keeps A's deferred save eligible after B saves and A is selected again", async () => {
+    const pendingASave = deferred<Response>();
+    const jobA = { ...firstJob, current_jd_analysis_id: currentAnalysis.id };
+    const analysisB = {
+      ...currentAnalysis,
+      id: 51,
+      job_posting_id: secondJob.id,
+      hard_requirements: ["B 初始要求"],
+    };
+    const jobB = { ...secondJob, current_jd_analysis_id: analysisB.id };
+    const savedA = { ...currentAnalysis, hard_requirements: ["A 已同步"] };
+    const savedB = { ...analysisB, hard_requirements: ["B 已同步"] };
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobA, jobB]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/8/jd-analyses") {
+        return Promise.resolve(jsonResponse([analysisB]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41") {
+        return pendingASave.promise;
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/51") {
+        return Promise.resolve(jsonResponse(savedB));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByLabelText("硬性要求");
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "A 待保存" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+    expect(await screen.findByDisplayValue("B 初始要求")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "B 待保存" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+    expect(await screen.findByDisplayValue("B 已同步")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /前端工程师/ }));
+    expect(await screen.findByDisplayValue("当前 React 要求")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存中" })).toBeDisabled();
+    await act(async () => {
+      pendingASave.resolve(jsonResponse(savedA));
+      await pendingASave.promise;
+    });
+
+    expect(screen.getByDisplayValue("A 已同步")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存分析" })).toBeEnabled();
+  });
 });

@@ -114,6 +114,10 @@ function toAnalysisPayload(draft: AnalysisDraft): JDAnalysisUpdatePayload {
   };
 }
 
+function analysisSaveKey(jobId: number, analysisId: number) {
+  return `${jobId}:${analysisId}`;
+}
+
 function defaultAnalysis(job: JobPosting, items: JDAnalysis[]): JDAnalysis | null {
   return (
     items.find((item) => item.id === job.current_jd_analysis_id) ??
@@ -136,8 +140,9 @@ export function JobsPage() {
   const [analysis, setAnalysis] = useState<JDAnalysis | null>(null);
   const analysisRef = useRef<JDAnalysis | null>(null);
   const analysisHistoryEpochRef = useRef(new Map<number, number>());
-  const analysisRevisionRef = useRef(0);
-  const analysisSaveRequestRef = useRef(0);
+  const analysisRevisionRef = useRef(new Map<string, number>());
+  const analysisSaveRequestRef = useRef(new Map<string, number>());
+  const activeAnalysisSaveRef = useRef(new Map<string, number>());
   const [analysisDraft, setAnalysisDraft] = useState<AnalysisDraft | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
@@ -181,7 +186,6 @@ export function JobsPage() {
     setAnalyses([]);
     setAnalysis(null);
     analysisRef.current = null;
-    analysisRevisionRef.current += 1;
     setAnalysisDraft(null);
     setAnalysisError(null);
     setAnalysisSaveMessage(null);
@@ -194,11 +198,16 @@ export function JobsPage() {
   }
 
   function selectAnalysis(nextAnalysis: JDAnalysis | null) {
-    analysisRevisionRef.current += 1;
     analysisRef.current = nextAnalysis;
     setAnalysis(nextAnalysis);
     setAnalysisDraft(nextAnalysis ? toAnalysisDraft(nextAnalysis) : null);
-    setIsSavingAnalysis(false);
+    setIsSavingAnalysis(
+      nextAnalysis !== null && selectedIdRef.current !== null
+        ? activeAnalysisSaveRef.current.has(
+            analysisSaveKey(selectedIdRef.current, nextAnalysis.id),
+          )
+        : false,
+    );
   }
 
   function nextAnalysisHistoryEpoch(jobId: number) {
@@ -309,7 +318,7 @@ export function JobsPage() {
   }
 
   function updateAnalysisDraft(field: AnalysisListField, value: string) {
-    analysisRevisionRef.current += 1;
+    incrementAnalysisRevision();
     setAnalysisDraft((current) =>
       current ? { ...current, [field]: value.split("\n") } : current,
     );
@@ -317,7 +326,7 @@ export function JobsPage() {
   }
 
   function updateAnalysisCompleteness(value: string) {
-    analysisRevisionRef.current += 1;
+    incrementAnalysisRevision();
     setAnalysisDraft((current) =>
       current ? { ...current, completeness_status: value } : current,
     );
@@ -337,8 +346,11 @@ export function JobsPage() {
     const jobId = selectedId;
     const analysisId = analysis.id;
     const payload = toAnalysisPayload(analysisDraft);
-    const saveRequest = ++analysisSaveRequestRef.current;
-    const analysisRevision = analysisRevisionRef.current;
+    const saveKey = analysisSaveKey(jobId, analysisId);
+    const saveRequest = (analysisSaveRequestRef.current.get(saveKey) ?? 0) + 1;
+    analysisSaveRequestRef.current.set(saveKey, saveRequest);
+    activeAnalysisSaveRef.current.set(saveKey, saveRequest);
+    const analysisRevision = analysisRevisionRef.current.get(saveKey) ?? 0;
     setIsSavingAnalysis(true);
     setAnalysisSaveError(null);
     try {
@@ -346,8 +358,8 @@ export function JobsPage() {
       if (
         selectedIdRef.current === jobId &&
         analysisRef.current?.id === analysisId &&
-        analysisSaveRequestRef.current === saveRequest &&
-        analysisRevisionRef.current === analysisRevision
+        analysisSaveRequestRef.current.get(saveKey) === saveRequest &&
+        analysisRevisionRef.current.get(saveKey) === analysisRevision
       ) {
         setAnalyses((current) =>
           current.map((item) => (item.id === analysisId ? savedAnalysis : item)),
@@ -359,16 +371,32 @@ export function JobsPage() {
       if (
         selectedIdRef.current === jobId &&
         analysisRef.current?.id === analysisId &&
-        analysisSaveRequestRef.current === saveRequest &&
-        analysisRevisionRef.current === analysisRevision
+        analysisSaveRequestRef.current.get(saveKey) === saveRequest &&
+        analysisRevisionRef.current.get(saveKey) === analysisRevision
       ) {
         setAnalysisSaveError("分析保存失败");
       }
     } finally {
-      if (analysisSaveRequestRef.current === saveRequest) {
-        setIsSavingAnalysis(false);
+      if (activeAnalysisSaveRef.current.get(saveKey) === saveRequest) {
+        activeAnalysisSaveRef.current.delete(saveKey);
+        if (
+          selectedIdRef.current === jobId &&
+          analysisRef.current?.id === analysisId
+        ) {
+          setIsSavingAnalysis(false);
+        }
       }
     }
+  }
+
+  function incrementAnalysisRevision() {
+    if (selectedId === null || analysisRef.current === null) return;
+
+    const revisionKey = analysisSaveKey(selectedId, analysisRef.current.id);
+    analysisRevisionRef.current.set(
+      revisionKey,
+      (analysisRevisionRef.current.get(revisionKey) ?? 0) + 1,
+    );
   }
 
   async function saveJob() {

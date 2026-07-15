@@ -47,3 +47,37 @@
 - history epoch 使用每岗位 Map，避免 A 的重新分析意外作废 B 的历史加载。
 - 保存状态的释放与数据回写分离：前者以最新保存请求为准，后者要求完整的岗位、版本、请求和 revision 资格。
 - 三个 deferred 回归覆盖旧同岗位历史覆盖、跨版本保存状态卡住，以及切回原版本后的旧响应覆盖草稿。
+
+## P1 Save Bucket Isolation Follow-up
+
+### RED/GREEN
+
+1. RED: A save remained deferred, then saving B incremented the single global
+   `analysisSaveRequestRef`. Returning to A made its otherwise valid response
+   fail the request-token eligibility check, so A never synchronized.
+   GREEN: save tokens are now stored in a `Map` keyed by `jobId:analysisId`.
+   The deferred A -> B -> A -> A resolves regression proves A synchronizes
+   after B saves.
+2. RED: one global draft revision and saving flag allowed activity in B to
+   invalidate or change the visible state for A.
+   GREEN: draft revisions and active save requests are keyed by the same
+   analysis key. Selecting an analysis derives its saving state from that
+   analysis bucket; completion only clears the currently displayed matching
+   bucket.
+
+### Verification
+
+- Focused: `npm.cmd test -- --no-cache src/features/jobs/JobsPage.test.tsx`
+  passed (20 tests).
+- Full: `npm.cmd test -- --no-cache` passed (3 files, 32 tests).
+- Build: `npm.cmd run build` passed.
+- `git diff --check` completed without whitespace errors.
+
+### Self Review
+
+- The save eligibility check requires the matching job, analysis, per-analysis
+  request token, and per-analysis draft revision before it writes a response.
+- Switching to B cannot clear A's active save, and A's completion cannot clear
+  B's visible save state.
+- The implementation and regression are limited to the Task 5 jobs page and
+  its test; this report records the follow-up fix.
