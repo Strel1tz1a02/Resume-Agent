@@ -188,7 +188,9 @@ export function JobsPage() {
         setSaveMessage("岗位已保存");
       }
     } catch {
-      setSaveError("岗位保存失败");
+      if (selectedIdRef.current === jobId) {
+        setSaveError("岗位保存失败");
+      }
     } finally {
       setIsSaving(false);
     }

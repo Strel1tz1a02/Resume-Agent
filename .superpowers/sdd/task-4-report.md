@@ -51,3 +51,21 @@
 - 保存回调不会再根据过期闭包覆盖新选择的草稿，也不会将旧岗位 payload 写入新岗位。
 - 两个 deferred 分析测试分别覆盖 A 成功与失败在切换到 B 后均不可见。
 - 加载异常不再逃逸为未处理 rejection；重试复用同一个受控加载路径。
+
+## Review Fix: Late Save Failure
+
+### RED/GREEN
+
+1. RED: A 的保存请求处于 deferred 状态时切换到 B，随后拒绝 A；无条件的 `setSaveError` 会在 B 的详情中显示 `岗位保存失败`。
+   GREEN: 保存失败提示与成功草稿回写一样，以 captured `jobId` 对照 `selectedIdRef.current`；只有请求所属岗位仍被选中时才显示错误。
+
+### Verification
+
+- Focused: `npx.cmd vitest run --no-cache src/features/jobs/JobsPage.test.tsx` passed (10 tests).
+- Full: `npx.cmd vitest run --no-cache` passed (3 files, 22 tests).
+- Build: `npm.cmd run build` passed.
+
+### Self Review
+
+- deferred rejection 回归测试明确覆盖 A 保存失败、切换到 B、错误消息不可见的完整时序。
+- 本次仅隔离异步错误提示回写，未改变保存请求、草稿或分析行为。

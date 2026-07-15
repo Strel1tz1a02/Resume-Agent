@@ -37,11 +37,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
 
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 afterEach(() => {
@@ -121,6 +123,31 @@ describe("JobsPage", () => {
       company: "B draft",
       title: "全栈工程师",
     });
+  });
+
+  it("does not show A's late save error after selecting B", async () => {
+    const pendingSave = deferred<Response>();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([firstJob, secondJob]))
+      .mockImplementationOnce(() => pendingSave.promise);
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("前端工程师");
+    fireEvent.click(screen.getByRole("button", { name: "保存岗位" }));
+    fireEvent.click(screen.getByRole("button", { name: /全栈工程师/ }));
+
+    await act(async () => {
+      pendingSave.reject(new Error("save failed"));
+      try {
+        await pendingSave.promise;
+      } catch {
+        // The component owns the rejection and exposes any UI state.
+      }
+    });
+
+    expect(screen.getByLabelText("岗位名称")).toHaveValue("全栈工程师");
+    expect(screen.queryByText("岗位保存失败")).not.toBeInTheDocument();
   });
 
   it("does not show A's late successful analysis after selecting B", async () => {
