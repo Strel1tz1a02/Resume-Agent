@@ -149,8 +149,11 @@ describe("skills page", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Skills" }));
+    fireEvent.click(await screen.findByRole("button", { name: "技能" }));
 
+    expect(await screen.findByRole("heading", { name: "技能" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "技能列表" })).toBeInTheDocument();
+    expect(screen.getByText("1 条已保存技能")).toBeInTheDocument();
     expect(await screen.findByText("Backend")).toBeInTheDocument();
     const description = screen.getByText("Python backend with FastAPI RESTful API delivery");
     const category = screen.getByText("Backend");
@@ -163,6 +166,7 @@ describe("skills page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Python backend/ }));
 
     const editDialog = await screen.findByRole("dialog");
+    expect(screen.getByRole("heading", { name: "编辑技能" })).toBeInTheDocument();
     const editFields = screen.getAllByRole("textbox");
     expect(editFields[0]).toHaveValue("Backend");
     expect(editFields[1]).toHaveValue("Python backend with FastAPI RESTful API delivery");
@@ -183,8 +187,9 @@ describe("skills page", () => {
     });
     expect(updateBody).not.toHaveProperty("experience_ids");
 
-    fireEvent.click(screen.getByRole("button", { name: "New skill" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增技能" }));
     const createDialog = await screen.findByRole("dialog");
+    expect(screen.getByRole("heading", { name: "新增技能" })).toBeInTheDocument();
     const createFields = screen.getAllByRole("textbox");
     fireEvent.change(createFields[0], { target: { value: "Backend" } });
     fireEvent.change(createFields[1], {

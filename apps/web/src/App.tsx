@@ -35,7 +35,7 @@ const navItems: Array<{
 }> = [
   { label: "岗位", icon: BriefcaseBusiness, page: "jobs" },
   { label: "画像库", icon: UserRound, page: "profile" },
-  { label: "Skills", icon: BadgeCheck, page: "skills" },
+  { label: "技能", icon: BadgeCheck, page: "skills" },
   { label: "简历版本", icon: FileText, page: "resumes" },
   { label: "投递清单", icon: Send, page: "applications" },
   { label: "配置", icon: Settings, page: "settings" },
@@ -44,7 +44,7 @@ const navItems: Array<{
 const pageMeta: Record<ActivePage, { title: string; status: string }> = {
   jobs: { title: "岗位", status: "后续阶段实现" },
   profile: { title: "画像库", status: "连接本地画像 API" },
-  skills: { title: "Skills", status: "Manage reusable skills" },
+  skills: { title: "技能", status: "维护可复用技能" },
   resumes: { title: "简历版本", status: "后续阶段实现" },
   applications: { title: "投递清单", status: "后续阶段实现" },
   settings: { title: "配置", status: "后续阶段实现" },
@@ -188,7 +188,7 @@ export function App() {
       setSkillDraft(null);
       setSkillDialogMode(null);
     } catch {
-      setSkillError("Skills 加载失败");
+      setSkillError("技能加载失败");
     } finally {
       setIsSkillLoading(false);
     }
@@ -299,9 +299,9 @@ export function App() {
       setSelectedSkillId(saved.id);
       setSkillDraft(toSkillDraft(saved));
       setSkillDialogMode(null);
-      setSkillSaveMessage("Skills 已保存");
+      setSkillSaveMessage("技能已保存");
     } catch {
-      setSkillError("Skills 保存失败");
+      setSkillError("技能保存失败");
     } finally {
       setIsSkillSaving(false);
     }
@@ -492,8 +492,8 @@ export function App() {
 
                 <section className="skill-evidence-panel">
                   <div>
-                    <h4>Skills</h4>
-                    <p>下一步会在这里维护可复用的 Skills。</p>
+                    <h4>技能</h4>
+                    <p>下一步会在这里维护可复用的技能。</p>
                   </div>
                 </section>
               </>
@@ -515,11 +515,11 @@ export function App() {
             <div className="experience-list-panel">
               <div className="panel-heading">
                 <div>
-                  <h3>Skills</h3>
-                  <p>{skills.length} saved skills</p>
+                  <h3>技能列表</h3>
+                  <p>{skills.length} 条已保存技能</p>
                 </div>
                 <button
-                  aria-label="New skill"
+                  aria-label="新增技能"
                   className="icon-button"
                   onClick={createSkillDraft}
                   type="button"
@@ -528,7 +528,7 @@ export function App() {
                 </button>
               </div>
 
-              {isSkillLoading ? <p className="muted">Loading skills...</p> : null}
+              {isSkillLoading ? <p className="muted">正在加载技能...</p> : null}
               {skillError ? (
                 <div className="inline-error">
                   <strong>{skillError}</strong>
@@ -541,7 +541,7 @@ export function App() {
               <div className="experience-list">
                 {skills.map((skill) => (
                   <button
-                    aria-label={`Edit skill ${skill.description}`}
+                    aria-label={`编辑技能 ${skill.description}`}
                     className={
                       skill.id === selectedSkillId
                         ? "experience-list-item selected"
@@ -573,9 +573,9 @@ export function App() {
                 <div className="panel-heading">
                   <div>
                     <h3 id="skill-dialog-title">
-                      {skillDialogMode === "new" ? "New skill" : "Edit skill"}
+                      {skillDialogMode === "new" ? "新增技能" : "编辑技能"}
                     </h3>
-                    <p>Category appears as a tag in the list.</p>
+                    <p>分类会作为标签显示在列表中。</p>
                   </div>
                   <button
                     className="primary-button"
@@ -596,7 +596,7 @@ export function App() {
                     />
                   </label>
                   <label className="wide-field">
-                    Skill description
+                    技能描述
                     <textarea
                       onChange={(event) =>
                         updateSkillDraft("description", event.target.value)
@@ -620,7 +620,7 @@ export function App() {
         {activePage !== "profile" && activePage !== "skills" ? (
           <section className="empty-state">
             <h3>{currentPageMeta.title}还没有开始实现</h3>
-            <p>当前阶段先完成画像库和 Skills 管理，后续会继续接入这个模块。</p>
+            <p>当前阶段先完成画像库和技能管理，后续会继续接入这个模块。</p>
           </section>
         ) : null}
       </main>
@@ -628,7 +628,7 @@ export function App() {
       <aside aria-label="Agent 面板" className="agent-panel">
         <div className="agent-title">
           <Bot aria-hidden="true" size={20} />
-          <strong>{activePage === "skills" ? "Skills Agent" : "画像 Agent"}</strong>
+          <strong>{activePage === "skills" ? "技能 Agent" : "画像 Agent"}</strong>
         </div>
         <div className="agent-message">
           {activePage === "skills" ? (
@@ -636,11 +636,11 @@ export function App() {
               <p>
                 {skillDraft?.description
                   ? `我会围绕「${skillDraft.description}」补充表达。`
-                  : "我会帮助你维护可复用的 Skills。"}
+                  : "我会帮助你维护可复用的技能。"}
               </p>
               <ul>
-                <li>Skills 可以不关联具体经历。</li>
-                <li>后续岗位匹配会同时参考经历和 Skills。</li>
+                <li>技能可以不关联具体经历。</li>
+                <li>后续岗位匹配会同时参考经历和技能。</li>
                 <li>当前默认保存内容都是真实可信事实。</li>
               </ul>
             </>
