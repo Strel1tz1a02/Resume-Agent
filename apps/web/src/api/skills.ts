@@ -1,12 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
-export type SkillEvidence = {
+export type Skill = {
   id: number;
   category: string | null;
   description: string;
 };
 
-export type SkillEvidencePayload = Omit<SkillEvidence, "id">;
+export type SkillPayload = Omit<Skill, "id">;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -24,24 +24,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function listSkillEvidences(): Promise<SkillEvidence[]> {
-  return request<SkillEvidence[]>("/skill-evidences");
+export function listSkills(): Promise<Skill[]> {
+  return request<Skill[]>("/skills");
 }
 
-export function createSkillEvidence(
-  payload: SkillEvidencePayload,
-): Promise<SkillEvidence> {
-  return request<SkillEvidence>("/skill-evidences", {
+export function createSkill(payload: SkillPayload): Promise<Skill> {
+  return request<Skill>("/skills", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export function updateSkillEvidence(
+export function updateSkill(
   id: number,
-  payload: SkillEvidencePayload,
-): Promise<SkillEvidence> {
-  return request<SkillEvidence>(`/skill-evidences/${id}`, {
+  payload: SkillPayload,
+): Promise<Skill> {
+  return request<Skill>(`/skills/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

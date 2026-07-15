@@ -91,9 +91,9 @@ def test_experience_crud(client: TestClient) -> None:
     assert client.get("/experiences").json() == []
 
 
-def test_skill_evidence_stores_independent_skill_specialty(client: TestClient) -> None:
+def test_skill_stores_independent_skill_description(client: TestClient) -> None:
     create_response = client.post(
-        "/skill-evidences",
+        "/skills",
         json={
             "category": "后端开发",
             "description": "Python后端基础扎实，熟悉FastAPI框架，可以将AI应用模块封装为高可用RESTful接口",
@@ -107,7 +107,7 @@ def test_skill_evidence_stores_independent_skill_specialty(client: TestClient) -
     assert "skill_name" not in create_response.json()
 
     update_response = client.put(
-        f"/skill-evidences/{create_response.json()['id']}",
+        f"/skills/{create_response.json()['id']}",
         json={
             "category": "AI 应用",
             "description": "掌握RAG、Agent开发原理，理解LangChain、Langgraph框架原理，可以熟练使用框架进行开发",
@@ -118,7 +118,7 @@ def test_skill_evidence_stores_independent_skill_specialty(client: TestClient) -
     assert update_response.json()["category"] == "AI 应用"
     assert "Langgraph" in update_response.json()["description"]
 
-    list_response = client.get("/skill-evidences")
+    list_response = client.get("/skills")
 
     assert list_response.status_code == 200
     assert list_response.json()[0]["description"] == update_response.json()["description"]

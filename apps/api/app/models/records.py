@@ -67,8 +67,8 @@ class Experience(UserOwnedMixin, TimestampMixin, Base):
     metrics: Mapped[str | None] = mapped_column(Text)
 
 
-class SkillEvidence(UserOwnedMixin, TimestampMixin, Base):
-    __tablename__ = "skill_evidences"
+class Skill(UserOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "skills"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     category: Mapped[str | None] = mapped_column(String(120))
@@ -114,7 +114,7 @@ class MatchReport(UserOwnedMixin, TimestampMixin, Base):
     jd_analysis_id: Mapped[int] = mapped_column(ForeignKey("jd_analyses.id"))
     overall_score: Mapped[float | None] = mapped_column(Float)
     candidate_experience_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
-    candidate_skill_evidence_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    candidate_skill_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     matched_requirements: Mapped[list[str]] = mapped_column(JSON, default=list)
     gaps: Mapped[list[str]] = mapped_column(JSON, default=list)
     risks: Mapped[list[str]] = mapped_column(JSON, default=list)
@@ -130,7 +130,7 @@ class ResumeVersion(UserOwnedMixin, TimestampMixin, Base):
     match_report_id: Mapped[int] = mapped_column(ForeignKey("match_reports.id"))
     markdown_content: Mapped[str] = mapped_column(Text)
     used_experience_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
-    used_skill_evidence_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    used_skill_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     generation_rationale: Mapped[str | None] = mapped_column(Text)
     manual_edit_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 

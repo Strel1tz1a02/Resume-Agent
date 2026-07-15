@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import DEFAULT_USER_ID
 from app.db.session import get_db
-from app.models import Experience, SkillEvidence, StudentPreference, StudentProfile
+from app.models import Experience, Skill, StudentPreference, StudentProfile
 from app.schemas.profile import (
     ExperienceCreate,
     ExperienceRead,
     ExperienceUpdate,
-    SkillEvidenceCreate,
-    SkillEvidenceRead,
-    SkillEvidenceUpdate,
+    SkillCreate,
+    SkillRead,
+    SkillUpdate,
     StudentPreferencePayload,
     StudentPreferenceRead,
     StudentProfilePayload,
@@ -147,43 +147,43 @@ def delete_experience(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/skill-evidences", response_model=list[SkillEvidenceRead])
-def list_skill_evidences(db: Session = Depends(get_db)) -> list[SkillEvidence]:
+@router.get("/skills", response_model=list[SkillRead])
+def list_skills(db: Session = Depends(get_db)) -> list[Skill]:
     return list(
         db.scalars(
-            select(SkillEvidence)
-            .where(SkillEvidence.user_id == DEFAULT_USER_ID)
-            .order_by(SkillEvidence.id)
+            select(Skill)
+            .where(Skill.user_id == DEFAULT_USER_ID)
+            .order_by(Skill.id)
         )
     )
 
 
 @router.post(
-    "/skill-evidences",
-    response_model=SkillEvidenceRead,
+    "/skills",
+    response_model=SkillRead,
     status_code=status.HTTP_201_CREATED,
 )
-def create_skill_evidence(
-    payload: SkillEvidenceCreate,
+def create_skill(
+    payload: SkillCreate,
     db: Session = Depends(get_db),
-) -> SkillEvidence:
-    skill_evidence = SkillEvidence(user_id=DEFAULT_USER_ID, **payload.model_dump())
-    db.add(skill_evidence)
+) -> Skill:
+    skill = Skill(user_id=DEFAULT_USER_ID, **payload.model_dump())
+    db.add(skill)
     db.commit()
-    db.refresh(skill_evidence)
-    return skill_evidence
+    db.refresh(skill)
+    return skill
 
 
-@router.put("/skill-evidences/{skill_evidence_id}", response_model=SkillEvidenceRead)
-def update_skill_evidence(
-    skill_evidence_id: int,
-    payload: SkillEvidenceUpdate,
+@router.put("/skills/{skill_id}", response_model=SkillRead)
+def update_skill(
+    skill_id: int,
+    payload: SkillUpdate,
     db: Session = Depends(get_db),
-) -> SkillEvidence:
-    skill_evidence = db.get(SkillEvidence, skill_evidence_id)
-    if skill_evidence is None or skill_evidence.user_id != DEFAULT_USER_ID:
-        raise HTTPException(status_code=404, detail="Skill evidence not found")
-    _apply_updates(skill_evidence, payload.model_dump(exclude_unset=True))
+) -> Skill:
+    skill = db.get(Skill, skill_id)
+    if skill is None or skill.user_id != DEFAULT_USER_ID:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    _apply_updates(skill, payload.model_dump(exclude_unset=True))
     db.commit()
-    db.refresh(skill_evidence)
-    return skill_evidence
+    db.refresh(skill)
+    return skill

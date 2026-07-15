@@ -51,7 +51,7 @@
 
 - 学生基础信息。
 - 项目、实习、竞赛、科研、课程设计、社团等经历。
-- 独立保存的技能特长。
+- 独立保存的技能。
 - 求职偏好和限制由独立偏好表保存，并与学生画像关联。
 
 画像库支持增量更新。用户不需要为每个岗位重新构建画像。
@@ -83,7 +83,7 @@
 
 ### 匹配与选材 Agent
 
-消费 `JDAnalysis`、`Experience` 和 `SkillEvidence`，生成 `MatchReport`。它选择最相关的经历，并解释：
+消费 `JDAnalysis`、`Experience` 和 `Skill`，生成 `MatchReport`。它选择最相关的经历，并解释：
 
 - 为什么选择这些经历。
 - 分别支撑 `JDAnalysis` 中的哪条要求。
@@ -147,16 +147,16 @@
 - 结果。
 - 量化指标。
 
-### SkillEvidence
+### Skill
 
-保存学生可复用的技能特长描述，作为独立事实库供匹配、简历生成和后续提升建议使用。技能特长不强制关联具体经历；经历和技能特长在匹配、简历生成阶段分别作为候选材料被引用。
+保存学生可复用的技能描述，作为独立事实库供匹配、简历生成和后续提升建议使用。技能不强制关联具体经历；经历和技能在匹配、简历生成阶段分别作为候选材料被引用。
 
 重要字段：
 
 - 分类。
 - 描述。
 
-描述应是一条可直接用于简历“技能特长”部分或经轻微改写后复用的完整表达，例如“Python 后端基础扎实，熟悉 FastAPI 框架，可以将 AI 应用模块封装为高可用 RESTful 接口”。分类只用于列表筛选、展示和后续组织，不作为目录树层级。
+描述应是一条可直接用于简历“技能”部分或经轻微改写后复用的完整表达，例如“Python 后端基础扎实，熟悉 FastAPI 框架，可以将 AI 应用模块封装为高可用 RESTful 接口”。分类只用于列表筛选、展示和后续组织，不作为目录树层级。
 
 ### JobPosting
 
@@ -202,13 +202,13 @@
 - `JDAnalysis` ID。
 - 总体匹配分。
 - 被选中的 `Experience` ID。
-- 被选中的 `SkillEvidence` ID。
+- 被选中的 `Skill` ID。
 - 已匹配要求。
 - 缺口。
 - 风险。
 - 建议追问的问题。
 - 简历策略。
-被选中的 `Experience` ID、`SkillEvidence` ID 可以有多个
+被选中的 `Experience` ID、`Skill` ID 可以有多个
 
 ### ResumeVersion
 
@@ -219,7 +219,7 @@
 - `MatchReport` ID。
 - Markdown 内容。
 - 使用的 `Experience` ID。
-- 使用的 `SkillEvidence` ID。
+- 使用的 `Skill` ID。
 - 生成理由。
 - 人工修改记录。
 - 创建和更新时间。
@@ -272,7 +272,7 @@
 - 右侧显示当前经历的结构化字段。
 - 右侧同时包含一个绑定当前 `Experience` 的 Agent 对话框。
 
-新增经历时，系统先创建一条草稿 `Experience`。用户可以直接填写字段，也可以让 Agent 通过引导式问题补全。确认后的内容写入 `Experience`，并可能更新 `SkillEvidence`。
+新增经历时，系统先创建一条草稿 `Experience`。用户可以直接填写字段，也可以让 Agent 通过引导式问题补全。确认后的内容写入 `Experience`，并可能更新 `Skill`。
 
 画像库 Agent 的默认上下文是当前选中的 `Experience`，不是全局自由聊天。
 
@@ -284,7 +284,7 @@
 2. 系统把候选事实抽取到待确认状态。
 3. Agent 针对缺失或较弱事实进行追问。
 4. 用户确认事实。
-5. 已确认事实写入 `StudentProfile`、`StudentPreference`、`Experience` 和 `SkillEvidence`。
+5. 已确认事实写入 `StudentProfile`、`StudentPreference`、`Experience` 和 `Skill`。
 
 ### 岗位导入与 JD 分析
 
@@ -298,7 +298,7 @@
 
 1. 用户选择一个 `JobPosting`。
 2. 系统加载关联的 `JDAnalysis`。
-3. 匹配 Agent 用 `JDAnalysis` 与 `Experience`、`SkillEvidence` 对比。
+3. 匹配 Agent 用 `JDAnalysis` 与 `Experience`、`Skill` 对比。
 4. 系统创建 `MatchReport`。
 5. 如果关键事实缺失，Agent 请求用户补充相关 `Experience`。
 6. 用户确认策略后，简历生成 Agent 创建 `ResumeVersion` Markdown。
@@ -313,9 +313,9 @@
 
 ## 简历生成规则
 
-- 简历生成读取 `MatchReport`、`Experience` 和 `SkillEvidence`。
+- 简历生成读取 `MatchReport`、`Experience` 和 `Skill`。
 - 简历生成不读取 `JobPosting`、`JDAnalysis`。
-- 每条生成的 bullet 都应能追溯到一个或多个 `Experience` 或 `SkillEvidence`，但不在简历里显示来源，可以在别处说明。
+- 每条生成的 bullet 都应能追溯到一个或多个 `Experience` 或 `Skill`，但不在简历里显示来源，可以在别处说明。
 - 强表述需要有事实或量化指标支撑。
 - 如果证据较弱，Agent 要么请求确认，要么使用更保守的措辞。
 - 导出 Word/PDF 是独立于创建 `ResumeVersion` 的动作。
@@ -338,9 +338,9 @@
 - 支持画像增量更新，而不是每次从零重建画像。
 - 简历解析先进入待确认事实状态，再写入正式事实库。
 - 能从完整、过短和格式混乱的 JD 中创建合理的 `JDAnalysis` 状态。
-- 能把 `JDAnalysis` 中的要求匹配到 `Experience` 和 `SkillEvidence`。
+- 能把 `JDAnalysis` 中的要求匹配到 `Experience` 和 `Skill`。
 - 简历生成不会读取`JobPosting`和`JDAnalysis`。
-- 简历 bullet 可以追溯来源 `Experience` 或 `SkillEvidence`。
+- 简历 bullet 可以追溯来源 `Experience` 或 `Skill`。
 - Markdown 能根据 `AppConfig` 的输出配置导出 Word/PDF。
 - 画像库页面能完成列出经历、通过 `+` 新增、选择经历、编辑详情、使用当前经历 Agent 的流程。
 

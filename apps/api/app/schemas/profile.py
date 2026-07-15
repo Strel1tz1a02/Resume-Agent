@@ -65,17 +65,17 @@ class ExperienceRead(ExperienceCreate):
     id: int
 
 
-class SkillEvidenceCreate(BaseModel):
+class SkillCreate(BaseModel):
     category: str | None = None
     description: str
 
 
-class SkillEvidenceUpdate(BaseModel):
+class SkillUpdate(BaseModel):
     category: str | None = None
     description: str | None = None
 
 
-class SkillEvidenceRead(SkillEvidenceCreate):
+class SkillRead(SkillCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

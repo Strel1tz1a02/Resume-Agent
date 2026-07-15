@@ -6,7 +6,7 @@ from app.models.records import (
     JobPosting,
     MatchReport,
     ResumeVersion,
-    SkillEvidence,
+    Skill,
     StudentPreference,
     StudentProfile,
 )
@@ -19,7 +19,7 @@ __all__ = [
     "JobPosting",
     "MatchReport",
     "ResumeVersion",
-    "SkillEvidence",
+    "Skill",
     "StudentPreference",
     "StudentProfile",
 ]

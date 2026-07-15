@@ -7,8 +7,8 @@
 - 后端 `/health` 健康检查。
 - 前端左侧导航、主工作区、右侧 Agent 面板占位。
 - SQLite + SQLAlchemy + Alembic 本地数据库。
-- 学生画像、求职偏好、经历库、技能特长的基础 CRUD API。
-- 技能特长独立于经历保存，当前字段为分类和描述；前端列表中描述在上方、分类标签在下方，新增和编辑通过弹窗完成。
+- 学生画像、求职偏好、经历库、技能的基础 CRUD API。
+- 技能独立于经历保存，当前字段为分类和描述；前端列表中描述在上方、分类标签在下方，新增和编辑通过弹窗完成。
 
 ## 目录
 
@@ -73,9 +73,9 @@ python -m pytest -q
 - `GET /experiences/{experience_id}`
 - `PUT /experiences/{experience_id}`
 - `DELETE /experiences/{experience_id}`
-- `GET /skill-evidences`
-- `POST /skill-evidences`
-- `PUT /skill-evidences/{skill_evidence_id}`
+- `GET /skills`
+- `POST /skills`
+- `PUT /skills/{skill_id}`
 
 ## 前端本地运行
 

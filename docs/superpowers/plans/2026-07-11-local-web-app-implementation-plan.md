@@ -81,7 +81,7 @@
 - `student_profiles`
 - `student_preferences`
 - `experiences`
-- `skill_evidences`
+- `skills`
 - `job_postings`
 - `jd_analyses`
 - `match_reports`
@@ -94,8 +94,8 @@
 - `JobPosting` 保存原始 JD 文本。
 - `JDAnalysis` 关联 `JobPosting`，作为结构化岗位分析。
 - `MatchReport` 关联 `JDAnalysis`，通过 `JDAnalysis` 追溯岗位。
-- `MatchReport` 中的 `Experience` / `SkillEvidence` 表示候选或推荐选材。
-- `ResumeVersion` 关联 `MatchReport`，其中的 `Experience` / `SkillEvidence` 表示该版本实际采用的内容。
+- `MatchReport` 中的 `Experience` / `Skill` 表示候选或推荐选材。
+- `ResumeVersion` 关联 `MatchReport`，其中的 `Experience` / `Skill` 表示该版本实际采用的内容。
 - `ApplicationRecord` 关联 `JobPosting` 和 `ResumeVersion`。
 - `StudentPreference` 通过 `user_id` 归属用户，不强制关联 `StudentProfile`。
 
@@ -107,8 +107,8 @@
 - 目标岗位方向。
 - 目标行业。
 - 不接受城市/行业/岗位类型。
-- `MatchReport` 的候选 `Experience` / `SkillEvidence` ID 列表。
-- `ResumeVersion` 的实际使用 `Experience` / `SkillEvidence` ID 列表。
+- `MatchReport` 的候选 `Experience` / `Skill` ID 列表。
+- `ResumeVersion` 的实际使用 `Experience` / `Skill` ID 列表。
 
 ## API 阶段
 
@@ -123,9 +123,9 @@
 - `GET /experiences/{id}`
 - `PUT /experiences/{id}`
 - `DELETE /experiences/{id}`
-- `GET /skill-evidences`
-- `POST /skill-evidences`
-- `PUT /skill-evidences/{id}`
+- `GET /skills`
+- `POST /skills`
+- `PUT /skills/{id}`
 
 ### 岗位与 JD API
 
@@ -174,7 +174,7 @@
 - 点击经历后，右侧显示详情表单。
 - 右侧下方或侧边显示绑定当前经历的 Agent 对话占位区。
 - 支持创建、编辑、保存经历。
-- 支持查看/维护技能证据。
+- 支持查看/维护技能。
 
 ### 岗位页面
 
@@ -187,10 +187,10 @@
 ### 匹配与简历页面
 
 - 在岗位详情中触发匹配。
-- 展示 `MatchReport`：匹配分、候选经历、候选技能证据、缺口、风险、简历策略。
+- 展示 `MatchReport`：匹配分、候选经历、候选技能、缺口、风险、简历策略。
 - 从 `MatchReport` 生成 `ResumeVersion`。
 - Markdown 编辑和预览。
-- 展示本版简历实际采用的经历和技能证据。
+- 展示本版简历实际采用的经历和技能。
 
 ### 投递清单页面
 
@@ -211,7 +211,7 @@
 第一版实现 mock/rule-based 服务：
 
 - `analyze_jd(job_posting)`：从 JD 文本中抽取简单关键词、职责、要求，生成 `JDAnalysis`。
-- `create_match_report(jd_analysis)`：基于关键词和技能名称做基础匹配，生成候选 `Experience` 和 `SkillEvidence`。
+- `create_match_report(jd_analysis)`：基于关键词和技能名称做基础匹配，生成候选 `Experience` 和 `Skill`。
 - `create_resume_version(match_report)`：根据候选内容生成 Markdown 简历草稿。
 - `suggest_experience_questions(experience)`：根据经历字段缺失情况生成追问建议。
 
@@ -227,14 +227,14 @@
 - `MatchReport -> JDAnalysis -> JobPosting` 可追溯。
 - `ResumeVersion -> MatchReport` 可追溯。
 - `ApplicationRecord` 同时关联 `JobPosting` 和 `ResumeVersion`。
-- 简历生成服务不读取 `JobPosting` 和 `JDAnalysis`，只读取 `MatchReport`、`Experience`、`SkillEvidence`。
+- 简历生成服务不读取 `JobPosting` 和 `JDAnalysis`，只读取 `MatchReport`、`Experience`、`Skill`。
 - mock JD 分析、匹配、简历生成可跑通。
 
 ### 前端测试
 
 - 画像库可新增、选择、编辑经历。
 - 岗位页可创建岗位并触发 JD 分析。
-- 匹配报告可生成并展示候选经历/技能证据。
+- 匹配报告可生成并展示候选经历/技能。
 - 简历版本可生成、编辑、预览。
 - 投递记录可创建和更新。
 
@@ -269,7 +269,7 @@
 - 实现四栏工作台基础布局。
 - 实现画像库左侧经历列表和右侧详情。
 - 实现新增经历 `+` 流程。
-- 实现技能证据维护入口。
+- 实现技能维护入口。
 
 验收：
 
@@ -298,7 +298,7 @@
 
 - 用户能从岗位生成匹配报告。
 - 用户能从匹配报告生成简历版本。
-- 简历版本记录实际使用的 Experience/SkillEvidence ID。
+- 简历版本记录实际使用的 Experience/Skill ID。
 
 ### 阶段 6：投递与导出占位
 

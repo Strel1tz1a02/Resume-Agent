@@ -17,7 +17,7 @@ const existingExperience = {
   metrics: "1 个本地 Web App",
 };
 
-const existingSkillEvidence = {
+const existingSkill = {
   id: 12,
   category: "Backend",
   description: "Python backend with FastAPI RESTful API delivery",
@@ -123,12 +123,12 @@ describe("画像库页面", () => {
 });
 
 
-describe("skill specialties page", () => {
-  it("shows a flat list and edits skill specialties in a dialog", async () => {
+describe("skills page", () => {
+  it("shows a flat list and edits skills in a dialog", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(mockJsonResponse([]))
-      .mockResolvedValueOnce(mockJsonResponse([existingSkillEvidence]))
+      .mockResolvedValueOnce(mockJsonResponse([existingSkill]))
       .mockResolvedValueOnce(
         mockJsonResponse({
           id: 12,
@@ -149,7 +149,7 @@ describe("skill specialties page", () => {
 
     render(<App />);
 
-    fireEvent.click((await screen.findAllByRole("button"))[2]);
+    fireEvent.click(await screen.findByRole("button", { name: "Skills" }));
 
     expect(await screen.findByText("Backend")).toBeInTheDocument();
     const description = screen.getByText("Python backend with FastAPI RESTful API delivery");
@@ -174,6 +174,8 @@ describe("skill specialties page", () => {
     fireEvent.click(editDialog.querySelector('button[type="submit"]') as HTMLButtonElement);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[1][0]).toBe("http://127.0.0.1:8000/skills");
+    expect(fetchMock.mock.calls[2][0]).toBe("http://127.0.0.1:8000/skills/12");
     const updateBody = JSON.parse(fetchMock.mock.calls[2][1]?.body as string);
     expect(updateBody).toEqual({
       category: "AI",
@@ -181,7 +183,7 @@ describe("skill specialties page", () => {
     });
     expect(updateBody).not.toHaveProperty("experience_ids");
 
-    fireEvent.click(screen.getAllByRole("button")[6]);
+    fireEvent.click(screen.getByRole("button", { name: "New skill" }));
     const createDialog = await screen.findByRole("dialog");
     const createFields = screen.getAllByRole("textbox");
     fireEvent.change(createFields[0], { target: { value: "Backend" } });
@@ -191,6 +193,7 @@ describe("skill specialties page", () => {
     fireEvent.click(createDialog.querySelector('button[type="submit"]') as HTMLButtonElement);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(fetchMock.mock.calls[3][0]).toBe("http://127.0.0.1:8000/skills");
     const createBody = JSON.parse(fetchMock.mock.calls[3][1]?.body as string);
     expect(createBody).toEqual({
       category: "Backend",
