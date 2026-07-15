@@ -685,6 +685,61 @@ describe("JobsPage", () => {
     expect(screen.getByDisplayValue("重新分析结果")).toBeInTheDocument();
   });
 
+  it("does not let a stale reanalysis history overwrite a successful analysis save", async () => {
+    const pendingReanalysisHistory = deferred<Response>();
+    const jobWithCurrentAnalysis = {
+      ...firstJob,
+      current_jd_analysis_id: currentAnalysis.id,
+    };
+    const reanalyzed = { ...currentAnalysis, id: 42, hard_requirements: ["重新分析要求"] };
+    const savedAnalysis = {
+      ...currentAnalysis,
+      hard_requirements: ["保存后的要求"],
+    };
+    let historyRequests = 0;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([jobWithCurrentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && !init?.method) {
+        historyRequests += 1;
+        return historyRequests === 1
+          ? Promise.resolve(jsonResponse([currentAnalysis]))
+          : pendingReanalysisHistory.promise;
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(reanalyzed, 201));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7") {
+        return Promise.resolve(jsonResponse({ ...jobWithCurrentAnalysis, current_jd_analysis_id: reanalyzed.id }));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41") {
+        return Promise.resolve(jsonResponse(savedAnalysis));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage />);
+
+    await screen.findByDisplayValue("当前 React 要求");
+    fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    await waitFor(() => expect(historyRequests).toBe(2));
+    fireEvent.change(screen.getByLabelText("硬性要求"), {
+      target: { value: "保存后的要求" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存分析" }));
+
+    expect(await screen.findByDisplayValue("保存后的要求")).toBeInTheDocument();
+    await act(async () => {
+      pendingReanalysisHistory.resolve(jsonResponse([currentAnalysis]));
+      await pendingReanalysisHistory.promise;
+    });
+
+    expect(screen.getByDisplayValue("保存后的要求")).toBeInTheDocument();
+  });
+
   it("clears a deferred save state after switching to another analysis version", async () => {
     const pendingSave = deferred<Response>();
     const jobWithCurrentAnalysis = {

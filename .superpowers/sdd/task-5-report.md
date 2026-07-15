@@ -81,3 +81,40 @@
   B's visible save state.
 - The implementation and regression are limited to the Task 5 jobs page and
   its test; this report records the follow-up fix.
+
+## P1 Analysis History Epoch Follow-up
+
+### RED/GREEN
+
+1. RED: a reanalysis history request could remain deferred while the existing
+   analysis was saved. The successful save wrote its new draft, but resolving
+   the earlier history request then overwrote that value.
+   GREEN: a qualifying analysis save advances the job history epoch before
+   writing the saved analysis. The reanalysis request captures its epoch when
+   it starts its history read and only writes when that epoch remains current.
+   The deferred regression keeps the saved value after the old history resolves.
+
+### Success-operation epoch audit
+
+- Create analysis and reanalyze both use `startAnalysis`; after
+  `createJDAnalysis` succeeds, the shared path advances and captures the
+  job history epoch before it fetches history.
+- Update analysis uses `saveAnalysis`; only a response that still matches its
+  job, analysis, save token, and revision advances the job history epoch and
+  writes the saved analysis.
+- No unrelated operation was expanded. The existing `loadAnalyses` request
+  eligibility remains keyed by the same per-job epoch.
+
+### Verification
+
+- Focused: `npm.cmd test -- --no-cache src/features/jobs/JobsPage.test.tsx`
+  passed (21 tests).
+- Full: `npm.cmd test -- --no-cache` passed (3 files, 33 tests).
+- Build: `npm.cmd run build` passed.
+
+### Self Review
+
+- Advancing the epoch happens before every qualifying analysis-history write,
+  so earlier `listJDAnalyses` responses cannot replace a newer save.
+- `startAnalysis` preserves its job-list refresh while gating only analysis
+  history UI state on the captured epoch.

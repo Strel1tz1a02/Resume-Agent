@@ -266,17 +266,20 @@ export function JobsPage() {
     setAnalysisError(null);
     try {
       const createdAnalysis = await createJDAnalysis(jobId);
+      const historyEpoch = nextAnalysisHistoryEpoch(jobId);
       const [savedJob, items] = await Promise.all([
         getJob(jobId),
         listJDAnalyses(jobId),
       ]);
-      nextAnalysisHistoryEpoch(jobId);
       setJobs((current) =>
         current.map((item) =>
           item.id === jobId ? savedJob : item,
         ),
       );
-      if (selectedIdRef.current === jobId) {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisHistoryEpochRef.current.get(jobId) === historyEpoch
+      ) {
         setAnalyses(items);
         selectAnalysis(items.find((item) => item.id === createdAnalysis.id) ?? createdAnalysis);
       }
@@ -361,6 +364,7 @@ export function JobsPage() {
         analysisSaveRequestRef.current.get(saveKey) === saveRequest &&
         analysisRevisionRef.current.get(saveKey) === analysisRevision
       ) {
+        nextAnalysisHistoryEpoch(jobId);
         setAnalyses((current) =>
           current.map((item) => (item.id === analysisId ? savedAnalysis : item)),
         );
