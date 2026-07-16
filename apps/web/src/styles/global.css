@@ -215,7 +215,30 @@ select {
   border-radius: 8px;
   background: #ffffff;
   color: #20242c;
-  padding: 9px 10px;
+  appearance: none;
+  min-height: 38px;
+  padding: 9px 34px 9px 10px;
+  cursor: pointer;
+}
+
+.select-control {
+  position: relative;
+  display: block;
+}
+
+.select-control svg {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  color: #667085;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.select-control:focus-within select {
+  border-color: #6689d8;
+  box-shadow: 0 0 0 3px rgb(70 111 203 / 14%);
+  outline: none;
 }
 
 .experience-list-panel,
@@ -411,6 +434,21 @@ textarea {
   padding: 18px;
 }
 
+.confirmation-panel {
+  width: min(440px, 100%);
+}
+
+.confirmation-panel h3 {
+  margin: 0;
+  color: #20242c;
+}
+
+.confirmation-panel p {
+  margin: 8px 0 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
 .modal-form-grid {
   grid-template-columns: 1fr;
 }
@@ -418,6 +456,7 @@ textarea {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   margin-top: 14px;
 }
 
@@ -428,6 +467,16 @@ textarea {
   background: #ffffff;
   color: #253044;
   padding: 0 12px;
+}
+
+.confirmation-actions button {
+  min-width: 92px;
+}
+
+.confirmation-actions .primary-button {
+  border-color: #315fbd;
+  background: #315fbd;
+  color: #ffffff;
 }
 
 .agent-panel {

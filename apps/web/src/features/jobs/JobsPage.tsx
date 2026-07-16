@@ -1,4 +1,4 @@
-import { Plus, Save } from "lucide-react";
+import { ChevronDown, Plus, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -134,6 +134,7 @@ export function JobsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [reanalysisJob, setReanalysisJob] = useState<JobPosting | null>(null);
   const [createDraft, setCreateDraft] = useState<JobDraft>({ ...emptyDraft });
   const [isCreating, setIsCreating] = useState(false);
   const [analyses, setAnalyses] = useState<JDAnalysis[]>([]);
@@ -180,6 +181,7 @@ export function JobsPage() {
   }
 
   function selectJob(job: JobPosting) {
+    setReanalysisJob(null);
     setSelectedId(job.id);
     selectedIdRef.current = job.id;
     setDraft(toDraft(job));
@@ -256,12 +258,8 @@ export function JobsPage() {
     setSaveMessage(null);
   }
 
-  async function startAnalysis(job: JobPosting, requiresConfirmation = false) {
+  async function startAnalysis(job: JobPosting) {
     const jobId = job.id;
-    if (requiresConfirmation && !window.confirm("确认重新分析该岗位的 JD 吗？")) {
-      return;
-    }
-
     setIsAnalyzing(true);
     setAnalysisError(null);
     try {
@@ -316,8 +314,15 @@ export function JobsPage() {
   function retryAnalysis() {
     const job = jobs.find((item) => item.id === selectedId);
     if (job) {
-      void startAnalysis(job, true);
+      setReanalysisJob(job);
     }
+  }
+
+  function confirmReanalysis() {
+    if (!reanalysisJob) return;
+    const job = reanalysisJob;
+    setReanalysisJob(null);
+    void startAnalysis(job);
   }
 
   function updateAnalysisDraft(field: AnalysisListField, value: string) {
@@ -581,26 +586,32 @@ export function JobsPage() {
                 <div className="analysis-toolbar">
                   <label>
                     分析版本
-                    <select
-                      onChange={(event) => chooseAnalysis(Number(event.target.value))}
-                      value={analysis.id}
-                    >
-                      {analyses.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          分析 #{item.id}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="select-control">
+                      <select
+                        onChange={(event) => chooseAnalysis(Number(event.target.value))}
+                        value={analysis.id}
+                      >
+                        {analyses.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            分析 #{item.id}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown aria-hidden="true" size={16} />
+                    </span>
                   </label>
                   <label>
                     完整性状态
-                    <select
-                      onChange={(event) => updateAnalysisCompleteness(event.target.value)}
-                      value={analysisDraft.completeness_status}
-                    >
-                      <option value="complete">complete</option>
-                      <option value="incomplete">incomplete</option>
-                    </select>
+                    <span className="select-control">
+                      <select
+                        onChange={(event) => updateAnalysisCompleteness(event.target.value)}
+                        value={analysisDraft.completeness_status}
+                      >
+                        <option value="complete">完整</option>
+                        <option value="incomplete">不完整</option>
+                      </select>
+                      <ChevronDown aria-hidden="true" size={16} />
+                    </span>
                   </label>
                 </div>
                 <div className="analysis-grid analysis-edit-grid">
@@ -653,6 +664,40 @@ export function JobsPage() {
           </>
         ) : null}
       </form>
+
+      {reanalysisJob ? (
+        <div className="modal-backdrop" role="presentation">
+          <div
+            aria-labelledby="reanalysis-dialog-title"
+            aria-modal="true"
+            className="modal-panel confirmation-panel"
+            role="dialog"
+          >
+            <div>
+              <h3 id="reanalysis-dialog-title">确认重新分析</h3>
+              <p>
+                将基于当前 JD 生成一个新的分析版本，已有分析记录会继续保留。
+              </p>
+            </div>
+            <div className="modal-actions confirmation-actions">
+              <button
+                className="secondary-button"
+                onClick={() => setReanalysisJob(null)}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="primary-button"
+                onClick={confirmReanalysis}
+                type="button"
+              >
+                确认重新分析
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isCreateDialogOpen ? (
         <div className="modal-backdrop" role="presentation">

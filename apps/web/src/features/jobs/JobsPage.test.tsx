@@ -350,8 +350,6 @@ describe("JobsPage", () => {
       .mockResolvedValueOnce(jsonResponse(recoveredAnalysis, 201))
       .mockResolvedValueOnce(jsonResponse({ ...createdJob, current_jd_analysis_id: 22 }))
       .mockResolvedValueOnce(jsonResponse([recoveredAnalysis]));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     render(<JobsPage />);
 
     await screen.findByText("0 个已保存岗位");
@@ -364,6 +362,7 @@ describe("JobsPage", () => {
     expect(await screen.findByText("JD 分析失败")).toBeInTheDocument();
     expect(screen.getByText("算法实习生")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新分析" }));
 
     expect(await screen.findByRole("heading", { name: "JD 分析" })).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
@@ -535,7 +534,6 @@ describe("JobsPage", () => {
     };
     const refreshedJob = { ...jobWithCurrentAnalysis, current_jd_analysis_id: 42 };
     const newAnalysis = { ...currentAnalysis, id: 42, hard_requirements: ["新版要求"] };
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
       if (url === "http://127.0.0.1:8000/jobs" && !init?.method) {
@@ -561,10 +559,20 @@ describe("JobsPage", () => {
 
     await screen.findByLabelText("分析版本");
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    expect(screen.getByRole("dialog", { name: "确认重新分析" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "确认重新分析" }));
 
     expect(await screen.findByDisplayValue("新版要求")).toBeInTheDocument();
     expect(screen.getByLabelText("分析版本")).toHaveValue("42");
-    expect(window.confirm).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("分析版本"), {
+      target: { value: String(currentAnalysis.id) },
+    });
+    expect(screen.getByDisplayValue("当前 React 要求")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("完整性状态"), {
+      target: { value: "incomplete" },
+    });
+    expect(screen.getByLabelText("完整性状态")).toHaveValue("incomplete");
     expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual(
       expect.arrayContaining([
         "http://127.0.0.1:8000/jobs/7",
@@ -578,7 +586,6 @@ describe("JobsPage", () => {
       ...firstJob,
       current_jd_analysis_id: currentAnalysis.id,
     };
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
       if (url === "http://127.0.0.1:8000/jobs") {
@@ -597,6 +604,7 @@ describe("JobsPage", () => {
 
     expect(await screen.findByDisplayValue("当前 React 要求")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新分析" }));
 
     expect(await screen.findByText("JD 分析失败")).toBeInTheDocument();
     expect(screen.getByDisplayValue("当前 React 要求")).toBeInTheDocument();
@@ -643,7 +651,6 @@ describe("JobsPage", () => {
     const refreshedJob = { ...jobWithCurrentAnalysis, current_jd_analysis_id: 42 };
     const reanalyzed = { ...currentAnalysis, id: 42, hard_requirements: ["重新分析结果"] };
     let aHistoryRequests = 0;
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
       if (url === "http://127.0.0.1:8000/jobs") {
@@ -675,6 +682,7 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /前端工程师/ }));
     expect(await screen.findByDisplayValue("当前 React 要求")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新分析" }));
     expect(await screen.findByDisplayValue("重新分析结果")).toBeInTheDocument();
 
     await act(async () => {
@@ -697,7 +705,6 @@ describe("JobsPage", () => {
       hard_requirements: ["保存后的要求"],
     };
     let historyRequests = 0;
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
       if (url === "http://127.0.0.1:8000/jobs") {
@@ -725,6 +732,7 @@ describe("JobsPage", () => {
 
     await screen.findByDisplayValue("当前 React 要求");
     fireEvent.click(screen.getByRole("button", { name: "重新分析" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新分析" }));
     await waitFor(() => expect(historyRequests).toBe(2));
     fireEvent.change(screen.getByLabelText("硬性要求"), {
       target: { value: "保存后的要求" },
