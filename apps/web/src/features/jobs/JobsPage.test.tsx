@@ -47,6 +47,37 @@ const currentAnalysis = {
   completeness_status: "complete",
 };
 
+const matchReport = {
+  id: 12,
+  jd_analysis_id: 41,
+  overall_score: 0,
+  candidate_experience_ids: [7],
+  candidate_skill_ids: [9],
+  matched_requirements: ["占位匹配尚未评估具体要求"],
+  gaps: [],
+  risks: ["当前结果由占位服务生成，未进行相关性计算"],
+  follow_up_questions: [],
+  resume_strategy: "占位匹配：生成简历前请确认实际采用的候选材料。",
+  candidate_experiences: [
+    {
+      id: 7,
+      type: "project",
+      name: "校园招聘助手",
+      start_date: null,
+      end_date: null,
+      organization: null,
+      role: null,
+      background: null,
+      task_content: null,
+      result: null,
+      metrics: null,
+    },
+  ],
+  candidate_skills: [
+    { id: 9, category: "Backend", description: "FastAPI" },
+  ],
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -72,6 +103,98 @@ afterEach(() => {
 });
 
 describe("JobsPage", () => {
+  it("creates a match report, confirms materials, and opens the new resume", async () => {
+    const onResumeCreated = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([{ ...firstJob, current_jd_analysis_id: 41 }]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41/match") {
+        return Promise.resolve(jsonResponse(matchReport, 201));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41/match-reports") {
+        return Promise.resolve(jsonResponse([matchReport]));
+      }
+      if (url === "http://127.0.0.1:8000/match-reports/12/resume-versions") {
+        return Promise.resolve(jsonResponse({ id: 31 }, 201));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url} ${init?.method ?? "GET"}`));
+    });
+
+    render(<JobsPage onResumeCreated={onResumeCreated} />);
+
+    await screen.findByDisplayValue("当前 React 要求");
+    fireEvent.click(screen.getByRole("button", { name: "生成匹配报告" }));
+    expect(await screen.findByText(matchReport.resume_strategy)).toBeInTheDocument();
+    expect(screen.getByText(/校园招聘助手/)).toBeInTheDocument();
+    expect(screen.getByText("FastAPI")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "生成简历" }));
+    const experienceCheckbox = screen.getByRole("checkbox", { name: /校园招聘助手/ });
+    const skillCheckbox = screen.getByRole("checkbox", { name: /FastAPI/ });
+    expect(experienceCheckbox).toBeChecked();
+    expect(skillCheckbox).toBeChecked();
+    fireEvent.click(skillCheckbox);
+    fireEvent.click(screen.getByRole("button", { name: "确认生成" }));
+
+    await waitFor(() => expect(onResumeCreated).toHaveBeenCalledWith(31));
+    const createCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/match-reports/12/resume-versions"),
+    );
+    expect(JSON.parse(createCall?.[1]?.body as string)).toEqual({
+      used_experience_ids: [7],
+      used_skill_ids: [],
+    });
+  });
+
+  it("keeps confirmed materials when resume creation fails and retries", async () => {
+    const onResumeCreated = vi.fn();
+    let resumeAttempts = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:8000/jobs") {
+        return Promise.resolve(jsonResponse([{ ...firstJob, current_jd_analysis_id: 41 }]));
+      }
+      if (url === "http://127.0.0.1:8000/jobs/7/jd-analyses") {
+        return Promise.resolve(jsonResponse([currentAnalysis]));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41/match") {
+        return Promise.resolve(jsonResponse(matchReport, 201));
+      }
+      if (url === "http://127.0.0.1:8000/jd-analyses/41/match-reports") {
+        return Promise.resolve(jsonResponse([matchReport]));
+      }
+      if (url === "http://127.0.0.1:8000/match-reports/12/resume-versions") {
+        resumeAttempts += 1;
+        return Promise.resolve(
+          resumeAttempts === 1
+            ? jsonResponse({ detail: "boom" }, 500)
+            : jsonResponse({ id: 31 }, 201),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<JobsPage onResumeCreated={onResumeCreated} />);
+    await screen.findByDisplayValue("当前 React 要求");
+    fireEvent.click(screen.getByRole("button", { name: "生成匹配报告" }));
+    await screen.findByText(matchReport.resume_strategy);
+    fireEvent.click(screen.getByRole("button", { name: "生成简历" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /FastAPI/ }));
+    fireEvent.click(screen.getByRole("button", { name: "确认生成" }));
+
+    expect(await screen.findByText("简历生成失败，请重试")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /校园招聘助手/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /FastAPI/ })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "确认生成" }));
+    await waitFor(() => expect(onResumeCreated).toHaveBeenCalledWith(31));
+    expect(resumeAttempts).toBe(2);
+  });
+
   it("mounts the jobs workbench from the jobs navigation", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse([]))

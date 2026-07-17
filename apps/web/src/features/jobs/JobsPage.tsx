@@ -14,6 +14,12 @@ import {
   updateJDAnalysis,
   updateJob,
 } from "../../api/jobs";
+import {
+  createMatchReport,
+  listMatchReports,
+  MatchReport,
+} from "../../api/matches";
+import { createResumeVersion } from "../../api/resumes";
 
 type JobDraft = {
   [Field in Exclude<keyof JobPosting, "id" | "current_jd_analysis_id">]: string;
@@ -126,7 +132,28 @@ function defaultAnalysis(job: JobPosting, items: JDAnalysis[]): JDAnalysis | nul
   );
 }
 
-export function JobsPage() {
+function MatchList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section>
+      <h4>{title}</h4>
+      {items.length ? (
+        <ul>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">暂无</p>
+      )}
+    </section>
+  );
+}
+
+type JobsPageProps = {
+  onResumeCreated?: (versionId: number) => void;
+};
+
+export function JobsPage({ onResumeCreated }: JobsPageProps = {}) {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selectedIdRef = useRef<number | null>(null);
@@ -155,6 +182,15 @@ export function JobsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
+  const [matchReport, setMatchReport] = useState<MatchReport | null>(null);
+  const [isMatching, setIsMatching] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+  const [resumeReport, setResumeReport] = useState<MatchReport | null>(null);
+  const [selectedExperienceIds, setSelectedExperienceIds] = useState<number[]>([]);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [isCreatingResume, setIsCreatingResume] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadJobs();
@@ -196,7 +232,17 @@ export function JobsPage() {
     setIsAnalyzing(false);
     setIsSaving(false);
     setIsSavingAnalysis(false);
+    clearMatchState();
     void loadAnalyses(job);
+  }
+
+  function clearMatchState() {
+    setMatchReports([]);
+    setMatchReport(null);
+    setMatchError(null);
+    setIsMatching(false);
+    setResumeReport(null);
+    setResumeError(null);
   }
 
   function selectAnalysis(nextAnalysis: JDAnalysis | null) {
@@ -344,8 +390,90 @@ export function JobsPage() {
   function chooseAnalysis(id: number) {
     const nextAnalysis = analyses.find((item) => item.id === id) ?? null;
     selectAnalysis(nextAnalysis);
+    clearMatchState();
     setAnalysisSaveError(null);
     setAnalysisSaveMessage(null);
+  }
+
+  async function generateMatchReport() {
+    if (!analysis || selectedId === null) return;
+    const jobId = selectedId;
+    const analysisId = analysis.id;
+    setIsMatching(true);
+    setMatchError(null);
+    try {
+      const created = await createMatchReport(analysisId);
+      let items = [created];
+      try {
+        items = await listMatchReports(analysisId);
+      } catch {
+        items = [created];
+      }
+      if (
+        selectedIdRef.current === jobId &&
+        analysisRef.current?.id === analysisId
+      ) {
+        setMatchReports(items);
+        setMatchReport(items.find((item) => item.id === created.id) ?? created);
+      }
+    } catch {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisRef.current?.id === analysisId
+      ) {
+        setMatchError("匹配报告生成失败");
+      }
+    } finally {
+      if (
+        selectedIdRef.current === jobId &&
+        analysisRef.current?.id === analysisId
+      ) {
+        setIsMatching(false);
+      }
+    }
+  }
+
+  function chooseMatchReport(id: number) {
+    setMatchReport(matchReports.find((item) => item.id === id) ?? null);
+    setMatchError(null);
+  }
+
+  function openResumeDialog() {
+    if (!matchReport) return;
+    setResumeReport(matchReport);
+    setSelectedExperienceIds([...matchReport.candidate_experience_ids]);
+    setSelectedSkillIds([...matchReport.candidate_skill_ids]);
+    setResumeError(null);
+  }
+
+  function toggleSelectedId(
+    id: number,
+    selected: number[],
+    setSelected: (ids: number[]) => void,
+  ) {
+    setSelected(
+      selected.includes(id)
+        ? selected.filter((itemId) => itemId !== id)
+        : [...selected, id],
+    );
+  }
+
+  async function generateResumeVersion() {
+    if (!resumeReport) return;
+    setIsCreatingResume(true);
+    setResumeError(null);
+    try {
+      const version = await createResumeVersion(resumeReport.id, {
+        used_experience_ids: selectedExperienceIds,
+        used_skill_ids: selectedSkillIds,
+      });
+      setResumeReport(null);
+      onResumeCreated?.(version.id);
+    } catch {
+      setResumeError("简历生成失败，请重试");
+    } finally {
+      setIsCreatingResume(false);
+    }
   }
 
   async function saveAnalysis() {
@@ -648,6 +776,99 @@ export function JobsPage() {
                 {analysisSaveMessage ? <p className="save-message">{analysisSaveMessage}</p> : null}
               </section>
             ) : null}
+            {analysis ? (
+              <section className="job-analysis-panel match-report-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>匹配报告</h3>
+                    <p>候选材料不等于简历实际采用材料</p>
+                  </div>
+                  <button
+                    className="primary-button"
+                    disabled={isMatching}
+                    onClick={() => void generateMatchReport()}
+                    type="button"
+                  >
+                    {isMatching ? "生成中" : "生成匹配报告"}
+                  </button>
+                </div>
+                {matchReport ? (
+                  <>
+                    {matchReports.length > 1 ? (
+                      <label>
+                        报告版本
+                        <span className="select-control">
+                          <select
+                            aria-label="报告版本"
+                            onChange={(event) =>
+                              chooseMatchReport(Number(event.target.value))
+                            }
+                            value={matchReport.id}
+                          >
+                            {matchReports.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                报告 #{item.id}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown aria-hidden="true" size={16} />
+                        </span>
+                      </label>
+                    ) : null}
+                    <div className="match-summary">
+                      <strong>匹配分：{matchReport.overall_score}</strong>
+                      <p>{matchReport.resume_strategy}</p>
+                    </div>
+                    <div className="match-material-grid">
+                      <section>
+                        <h4>候选经历</h4>
+                        {matchReport.candidate_experiences.length ? (
+                          <ul>
+                            {matchReport.candidate_experiences.map((experience) => (
+                              <li key={experience.id}>
+                                {experience.name} · {experience.type}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="muted">暂无候选经历</p>
+                        )}
+                      </section>
+                      <section>
+                        <h4>候选技能</h4>
+                        {matchReport.candidate_skills.length ? (
+                          <ul>
+                            {matchReport.candidate_skills.map((skill) => (
+                              <li key={skill.id}>{skill.description}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="muted">暂无候选技能</p>
+                        )}
+                      </section>
+                    </div>
+                    <div className="match-detail-grid">
+                      <MatchList title="匹配要求" items={matchReport.matched_requirements} />
+                      <MatchList title="缺口" items={matchReport.gaps} />
+                      <MatchList title="风险" items={matchReport.risks} />
+                      <MatchList title="建议追问" items={matchReport.follow_up_questions} />
+                    </div>
+                    <div className="analysis-actions">
+                      <button
+                        className="primary-button"
+                        onClick={openResumeDialog}
+                        type="button"
+                      >
+                        生成简历
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted">尚未生成匹配报告</p>
+                )}
+                {matchError ? <p className="inline-error">{matchError}</p> : null}
+              </section>
+            ) : null}
             {!isAnalysisLoading && !analysis && !analysisError ? (
               <p className="muted">暂无分析记录</p>
             ) : null}
@@ -693,6 +914,89 @@ export function JobsPage() {
                 type="button"
               >
                 确认重新分析
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {resumeReport ? (
+        <div className="modal-backdrop" role="presentation">
+          <div
+            aria-labelledby="resume-material-dialog-title"
+            aria-modal="true"
+            className="modal-panel"
+            role="dialog"
+          >
+            <div className="panel-heading">
+              <div>
+                <h3 id="resume-material-dialog-title">确认简历选材</h3>
+                <p>候选材料默认全选，可调整为本版本实际采用的内容。</p>
+              </div>
+            </div>
+            <div className="resume-material-options">
+              <section>
+                <h4>经历</h4>
+                {resumeReport.candidate_experiences.map((experience) => (
+                  <label key={experience.id}>
+                    <input
+                      checked={selectedExperienceIds.includes(experience.id)}
+                      onChange={() =>
+                        toggleSelectedId(
+                          experience.id,
+                          selectedExperienceIds,
+                          setSelectedExperienceIds,
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    {experience.name} · {experience.type}
+                  </label>
+                ))}
+                {!resumeReport.candidate_experiences.length ? (
+                  <p className="muted">暂无候选经历</p>
+                ) : null}
+              </section>
+              <section>
+                <h4>技能</h4>
+                {resumeReport.candidate_skills.map((skill) => (
+                  <label key={skill.id}>
+                    <input
+                      checked={selectedSkillIds.includes(skill.id)}
+                      onChange={() =>
+                        toggleSelectedId(
+                          skill.id,
+                          selectedSkillIds,
+                          setSelectedSkillIds,
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    {skill.description}
+                  </label>
+                ))}
+                {!resumeReport.candidate_skills.length ? (
+                  <p className="muted">暂无候选技能</p>
+                ) : null}
+              </section>
+            </div>
+            {resumeError ? <p className="inline-error">{resumeError}</p> : null}
+            <div className="modal-actions">
+              <button
+                className="secondary-button"
+                disabled={isCreatingResume}
+                onClick={() => setResumeReport(null)}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="primary-button"
+                disabled={isCreatingResume}
+                onClick={() => void generateResumeVersion()}
+                type="button"
+              >
+                {isCreatingResume ? "生成中" : "确认生成"}
               </button>
             </div>
           </div>
