@@ -26,6 +26,7 @@ import {
   updateSkill,
 } from "./api/skills";
 import { JobsPage } from "./features/jobs/JobsPage";
+import { ResumeVersionsPage } from "./features/resumes/ResumeVersionsPage";
 
 type ActivePage = "jobs" | "profile" | "skills" | "resumes" | "applications" | "settings";
 
@@ -46,7 +47,7 @@ const pageMeta: Record<ActivePage, { title: string; status: string }> = {
   jobs: { title: "岗位与 JD 分析", status: "岗位工作台" },
   profile: { title: "画像库", status: "连接本地画像 API" },
   skills: { title: "技能", status: "维护可复用技能" },
-  resumes: { title: "简历版本", status: "后续阶段实现" },
+  resumes: { title: "简历版本", status: "Markdown 编辑与预览" },
   applications: { title: "投递清单", status: "后续阶段实现" },
   settings: { title: "配置", status: "后续阶段实现" },
 };
@@ -137,6 +138,7 @@ function getAgentQuestions(draft: DraftExperience | null): string[] {
 // export 表示这个函数可以被其他文件导入
 export function App() {
   const [activePage, setActivePage] = useState<ActivePage>("profile");
+  const [pendingResumeVersionId, setPendingResumeVersionId] = useState<number | null>(null);
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<DraftExperience | null>(null);
@@ -337,13 +339,26 @@ export function App() {
       <main aria-label="工作台主区域" className="workspace">
         <section className="workspace-header">
           <div>
-            <p className="eyebrow">{activePage === "jobs" ? "阶段 4" : "阶段 3"}</p>
+            <p className="eyebrow">
+              {activePage === "jobs" || activePage === "resumes" ? "阶段 5" : "阶段 3"}
+            </p>
             <h2>{currentPageMeta.title}</h2>
           </div>
           <span className="status-pill">{currentPageMeta.status}</span>
         </section>
 
-        {activePage === "jobs" ? <JobsPage /> : null}
+        {activePage === "jobs" ? (
+          <JobsPage
+            onResumeCreated={(versionId) => {
+              setPendingResumeVersionId(versionId);
+              setActivePage("resumes");
+            }}
+          />
+        ) : null}
+
+        {activePage === "resumes" ? (
+          <ResumeVersionsPage initialVersionId={pendingResumeVersionId} />
+        ) : null}
 
         {activePage === "profile" ? (
         <section className="profile-workbench">
@@ -620,7 +635,7 @@ export function App() {
           </>
         ) : null}
 
-        {activePage !== "jobs" && activePage !== "profile" && activePage !== "skills" ? (
+        {activePage !== "jobs" && activePage !== "profile" && activePage !== "skills" && activePage !== "resumes" ? (
           <section className="empty-state">
             <h3>{currentPageMeta.title}还没有开始实现</h3>
             <p>当前阶段先完成画像库和技能管理，后续会继续接入这个模块。</p>
@@ -634,6 +649,8 @@ export function App() {
           <strong>
             {activePage === "jobs"
               ? "岗位 Agent"
+              : activePage === "resumes"
+                ? "简历 Agent"
               : activePage === "skills"
                 ? "技能 Agent"
                 : "画像 Agent"}
@@ -648,6 +665,8 @@ export function App() {
                 <li>分析失败时可以保留岗位并重新分析。</li>
               </ul>
             </>
+          ) : activePage === "resumes" ? (
+            <p>这里只有本版本实际采用的材料，内容由占位服务按事实拼接。</p>
           ) : activePage === "skills" ? (
             <>
               <p>

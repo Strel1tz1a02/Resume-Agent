@@ -23,6 +23,23 @@ const existingSkill = {
   description: "Python backend with FastAPI RESTful API delivery",
 };
 
+const existingResumeVersion = {
+  id: 31,
+  job_posting_id: 7,
+  match_report_id: 12,
+  markdown_content: "# 简历草稿",
+  used_experience_ids: [],
+  used_skill_ids: [],
+  generation_rationale: "占位生成",
+  manual_edit_history: [],
+  created_at: "2026-07-17T12:00:00Z",
+  updated_at: "2026-07-17T12:00:00Z",
+  job_company: "示例科技",
+  job_title: "后端工程师",
+  used_experiences: [],
+  used_skills: [],
+};
+
 function mockJsonResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -34,6 +51,22 @@ function mockJsonResponse(body: unknown, status = 200): Response {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+describe("简历版本导航", () => {
+  it("opens the independent resume editor from the main navigation", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse([]))
+      .mockResolvedValueOnce(mockJsonResponse([existingResumeVersion]))
+      .mockResolvedValueOnce(mockJsonResponse(existingResumeVersion));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "简历版本" }));
+
+    expect(await screen.findByLabelText("Markdown 内容")).toHaveValue("# 简历草稿");
+    expect(screen.getByText("暂无实际采用经历")).toBeInTheDocument();
+    expect(screen.getByText("这里只有本版本实际采用的材料，内容由占位服务按事实拼接。")).toBeInTheDocument();
+  });
 });
 
 describe("画像库页面", () => {

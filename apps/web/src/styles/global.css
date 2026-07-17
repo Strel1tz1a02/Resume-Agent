@@ -262,6 +262,75 @@ button {
   margin-top: 2px;
 }
 
+.resume-versions-workbench {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.resume-version-list-panel,
+.resume-version-detail-panel {
+  border: 1px solid #dde2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.used-materials-grid,
+.resume-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.used-materials-grid section,
+.resume-preview-panel {
+  border: 1px solid #d9e4fb;
+  border-radius: 8px;
+  background: #f8faff;
+  padding: 14px;
+}
+
+.used-materials-grid h4,
+.resume-preview-panel h4 {
+  margin: 0;
+}
+
+.used-materials-grid ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.resume-markdown-editor {
+  min-height: 480px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  line-height: 1.6;
+}
+
+.markdown-preview {
+  margin-top: 12px;
+  color: #253044;
+  line-height: 1.65;
+}
+
+.markdown-preview h1 {
+  border-bottom: 1px solid #d9e4fb;
+  font-size: 24px;
+  padding-bottom: 8px;
+}
+
+.markdown-preview h2 {
+  margin-top: 20px;
+  font-size: 18px;
+}
+
+.markdown-preview p,
+.markdown-preview ul {
+  margin: 8px 0;
+}
+
 select {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -576,6 +645,7 @@ textarea {
   .app-shell,
   .profile-workbench,
   .jobs-workbench,
+  .resume-versions-workbench,
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -586,7 +656,9 @@ textarea {
 
   .match-material-grid,
   .match-detail-grid,
-  .resume-material-options {
+  .resume-material-options,
+  .used-materials-grid,
+  .resume-editor-grid {
     grid-template-columns: 1fr;
   }
 
