@@ -11,6 +11,12 @@
 - 技能独立于经历保存，当前字段为分类和描述；前端列表中描述在上方、分类标签在下方，新增和编辑通过弹窗完成。
 - 岗位工作台支持粘贴 JD 创建岗位、编辑岗位信息，并自动生成结构化 JD 分析。
 - JD 分析当前使用本地确定性规则，支持人工编辑、保留历史版本和重新分析；后续可替换为 LLM 服务。
+- 岗位页可从当前 JD 分析生成占位 `MatchReport`，查看候选经历与技能，并在生成简历前确认实际选材。
+- 独立“简历版本”页面支持查看实际采用材料、编辑 Markdown 和即时安全预览。
+- 匹配与简历生成当前只使用可预测的占位服务来跑通链路，不进行相关性计算或高质量内容生成。
+- 岗位页可从当前 JD 分析生成占位 `MatchReport`，查看候选经历与技能，并在生成简历前确认实际选材。
+- 独立“简历版本”页面支持查看实际采用材料、编辑 Markdown 和即时安全预览。
+- 匹配与简历生成当前只使用可预测的占位服务来跑通链路，不进行相关性计算或高质量内容生成。
 
 ## 目录
 
@@ -89,6 +95,20 @@ python -m pytest -q
 - `GET /jobs/{job_id}/jd-analyses`
 - `GET /jd-analyses/{analysis_id}`
 - `PUT /jd-analyses/{analysis_id}`
+- `POST /jd-analyses/{analysis_id}/match`
+- `GET /jd-analyses/{analysis_id}/match-reports`
+- `GET /match-reports/{report_id}`
+- `POST /match-reports/{report_id}/resume-versions`
+- `GET /resume-versions`
+- `GET /resume-versions/{version_id}`
+- `PUT /resume-versions/{version_id}`
+- `POST /jd-analyses/{analysis_id}/match`
+- `GET /jd-analyses/{analysis_id}/match-reports`
+- `GET /match-reports/{report_id}`
+- `POST /match-reports/{report_id}/resume-versions`
+- `GET /resume-versions`
+- `GET /resume-versions/{version_id}`
+- `PUT /resume-versions/{version_id}`
 
 ## 岗位与 JD 分析工作流
 
@@ -99,6 +119,26 @@ python -m pytest -q
 5. 重新分析会创建新的历史记录，并把 `JobPosting.current_jd_analysis_id` 更新为最新分析；旧版本仍可查看。
 
 当前规则分析只识别少量显式标签和关键词，用于跑通数据流，不承担复杂语义判断。
+
+## 匹配与简历版本工作流
+
+1. 在“岗位”页面选择一条 JD 分析，点击“生成匹配报告”。
+2. 占位匹配服务把当前画像库中的经历和技能作为候选材料，并保留报告历史。
+3. 点击“生成简历”后，候选材料默认全选；取消勾选的内容不会写入本版本的 `used_experience_ids` 或 `used_skill_ids`。
+4. 生成成功后工作台自动进入“简历版本”页面，显示该版本实际采用的材料。
+5. Markdown 编辑区和预览区实时同步；保存会更新当前版本并记录人工修改摘要。
+
+当前 MatchReport 分数、策略和风险说明均为占位内容；Markdown 也只是按用户确认的画像事实使用固定模板拼接。后续可以替换服务层算法，而不修改现有 API 和前端链路。
+
+## 匹配与简历版本工作流
+
+1. 在“岗位”页面选择一条 JD 分析，点击“生成匹配报告”。
+2. 占位匹配服务把当前画像库中的经历和技能作为候选材料，并保留报告历史。
+3. 点击“生成简历”后，候选材料默认全选；取消勾选的内容不会写入本版本的 `used_experience_ids` 或 `used_skill_ids`。
+4. 生成成功后工作台自动进入“简历版本”页面，显示该版本实际采用的材料。
+5. Markdown 编辑区和预览区实时同步；保存会更新当前版本并记录人工修改摘要。
+
+当前 MatchReport 分数、策略和风险说明均为占位内容；Markdown 也只是按用户确认的画像事实使用固定模板拼接。后续可以替换服务层算法，而不修改现有 API 和前端链路。
 
 ## 前端本地运行
 
