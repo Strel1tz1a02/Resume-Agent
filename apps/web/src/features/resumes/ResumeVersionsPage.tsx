@@ -1,8 +1,9 @@
-import { Save } from "lucide-react";
+import { Download, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
   getResumeVersion,
+  exportResumeVersion,
   listResumeVersions,
   ResumeVersion,
   updateResumeVersion,
@@ -27,6 +28,9 @@ export function ResumeVersionsPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const hasUnsavedChanges = version !== null && draft !== version.markdown_content;
 
   useEffect(() => {
     void loadVersions();
@@ -65,6 +69,7 @@ export function ResumeVersionsPage({
     setLoadError(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDownloadError(null);
     try {
       const item = await getResumeVersion(id);
       if (selectedIdRef.current === id && selectionEpochRef.current === epoch) {
@@ -103,6 +108,33 @@ export function ResumeVersionsPage({
     } finally {
       if (selectedIdRef.current === versionId) {
         setIsSaving(false);
+      }
+    }
+  }
+
+  async function downloadMarkdown() {
+    if (!version || hasUnsavedChanges) return;
+    const versionId = version.id;
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      const { blob, filename } = await exportResumeVersion(versionId);
+      if (selectedIdRef.current !== versionId) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      if (selectedIdRef.current === versionId) {
+        setDownloadError("Markdown 下载失败");
+      }
+    } finally {
+      if (selectedIdRef.current === versionId) {
+        setIsDownloading(false);
       }
     }
   }
@@ -151,15 +183,25 @@ export function ResumeVersionsPage({
                 <h3>{version.job_title ?? "未命名岗位"}</h3>
                 <p>{version.job_company ?? "未知公司"} · 简历 #{version.id}</p>
               </div>
-              <button
-                className="primary-button"
-                disabled={isSaving}
-                onClick={() => void saveMarkdown()}
-                type="button"
-              >
-                <Save aria-hidden="true" size={16} />
-                {isSaving ? "保存中" : "保存简历"}
-              </button>
+              <div className="button-row">
+                <button
+                  disabled={isDownloading || isSaving || hasUnsavedChanges}
+                  onClick={() => void downloadMarkdown()}
+                  type="button"
+                >
+                  <Download aria-hidden="true" size={16} />
+                  {isDownloading ? "下载中" : "下载 Markdown"}
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={isSaving}
+                  onClick={() => void saveMarkdown()}
+                  type="button"
+                >
+                  <Save aria-hidden="true" size={16} />
+                  {isSaving ? "保存中" : "保存简历"}
+                </button>
+              </div>
             </div>
 
             <div className="used-materials-grid">
@@ -208,6 +250,8 @@ export function ResumeVersionsPage({
             </div>
             {saveError ? <p className="inline-error">{saveError}</p> : null}
             {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            {hasUnsavedChanges ? <p className="muted">请先保存后下载</p> : null}
+            {downloadError ? <p className="inline-error">{downloadError}</p> : null}
           </>
         ) : !loadError ? (
           <div className="empty-state compact">

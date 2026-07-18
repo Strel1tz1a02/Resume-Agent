@@ -53,6 +53,7 @@ function deferred<T>() {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("ResumeVersionsPage", () => {
@@ -148,5 +149,67 @@ describe("ResumeVersionsPage", () => {
     });
 
     await waitFor(() => expect(screen.getByLabelText("Markdown 内容")).toHaveValue("# 第二版"));
+  });
+
+  it("blocks stale markdown download until the draft is saved", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([version]))
+      .mockResolvedValueOnce(jsonResponse(version));
+
+    render(<ResumeVersionsPage initialVersionId={31} />);
+    fireEvent.change(await screen.findByLabelText("Markdown 内容"), {
+      target: { value: "# 未保存草稿" },
+    });
+
+    expect(screen.getByRole("button", { name: "下载 Markdown" })).toBeDisabled();
+    expect(screen.getByText("请先保存后下载")).toBeInTheDocument();
+  });
+
+  it("downloads the saved markdown with the server filename", async () => {
+    const createObjectURL = vi.fn(() => "blob:resume-download");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function clickDownload() {
+        expect(this.download).toBe("示例科技_后端工程师_简历版本31.md");
+        expect(this.href).toBe("blob:resume-download");
+      });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([version]))
+      .mockResolvedValueOnce(jsonResponse(version))
+      .mockResolvedValueOnce(
+        new Response(version.markdown_content, {
+          status: 200,
+          headers: {
+            "Content-Disposition":
+              "attachment; filename*=UTF-8''%E7%A4%BA%E4%BE%8B%E7%A7%91%E6%8A%80_%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B%E5%B8%88_%E7%AE%80%E5%8E%86%E7%89%88%E6%9C%AC31.md",
+          },
+        }),
+      );
+
+    render(<ResumeVersionsPage initialVersionId={31} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "下载 Markdown" }),
+    );
+
+    await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:resume-download");
+  });
+
+  it("keeps the current markdown when download fails", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse([version]))
+      .mockResolvedValueOnce(jsonResponse(version))
+      .mockResolvedValueOnce(jsonResponse({ detail: "boom" }, 500));
+
+    render(<ResumeVersionsPage initialVersionId={31} />);
+    const editor = await screen.findByLabelText("Markdown 内容");
+    fireEvent.click(screen.getByRole("button", { name: "下载 Markdown" }));
+
+    expect(await screen.findByText("Markdown 下载失败")).toBeInTheDocument();
+    expect(editor).toHaveValue(version.markdown_content);
+    expect(screen.getByRole("button", { name: "下载 Markdown" })).toBeEnabled();
   });
 });
