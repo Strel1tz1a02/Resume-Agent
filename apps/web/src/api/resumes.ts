@@ -35,6 +35,11 @@ export type ResumeVersionUpdatePayload = {
   markdown_content: string;
 };
 
+export type ResumeDownload = {
+  blob: Blob;
+  filename: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -75,4 +80,30 @@ export function updateResumeVersion(
     method: "PUT",
     body: JSON.stringify(payload),
   });
+}
+
+function parseDownloadFilename(header: string | null): string {
+  const encoded = header?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (!encoded) return "resume.md";
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return "resume.md";
+  }
+}
+
+export async function exportResumeVersion(
+  versionId: number,
+): Promise<ResumeDownload> {
+  const response = await fetch(
+    `${API_BASE_URL}/resume-versions/${versionId}/export`,
+    { method: "POST" },
+  );
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`);
+  }
+  return {
+    blob: await response.blob(),
+    filename: parseDownloadFilename(response.headers.get("Content-Disposition")),
+  };
 }
