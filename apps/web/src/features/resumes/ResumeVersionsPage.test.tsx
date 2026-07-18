@@ -171,7 +171,7 @@ describe("ResumeVersionsPage", () => {
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(function clickDownload() {
+      .mockImplementation(function clickDownload(this: HTMLAnchorElement) {
         expect(this.download).toBe("示例科技_后端工程师_简历版本31.md");
         expect(this.href).toBe("blob:resume-download");
       });

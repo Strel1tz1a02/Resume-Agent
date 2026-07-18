@@ -309,6 +309,82 @@ button {
   line-height: 1.6;
 }
 
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid #c9d3e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #253044;
+  padding: 0 12px;
+}
+
+.button-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.applications-workbench,
+.settings-workbench {
+  margin-top: 24px;
+  border: 1px solid #dde2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.application-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.application-list-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(90px, 0.8fr) auto minmax(120px, 0.8fr) minmax(120px, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid #dde2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  padding: 12px;
+  text-align: left;
+}
+
+.application-list-item:hover {
+  border-color: #9eb4e8;
+  background: #f8faff;
+}
+
+.application-list-item > span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.application-list-item small {
+  color: #667085;
+}
+
+.settings-form {
+  max-width: 820px;
+}
+
+.settings-grid input[readonly] {
+  background: #f4f6f9;
+  color: #667085;
+}
+
 .markdown-preview {
   margin-top: 12px;
   color: #253044;
@@ -668,5 +744,14 @@ textarea {
 
   .workspace {
     padding: 18px;
+  }
+
+  .application-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .button-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

@@ -26,7 +26,9 @@ import {
   updateSkill,
 } from "./api/skills";
 import { JobsPage } from "./features/jobs/JobsPage";
+import { ApplicationsPage } from "./features/applications/ApplicationsPage";
 import { ResumeVersionsPage } from "./features/resumes/ResumeVersionsPage";
+import { SettingsPage } from "./features/settings/SettingsPage";
 
 type ActivePage = "jobs" | "profile" | "skills" | "resumes" | "applications" | "settings";
 
@@ -48,8 +50,8 @@ const pageMeta: Record<ActivePage, { title: string; status: string }> = {
   profile: { title: "画像库", status: "连接本地画像 API" },
   skills: { title: "技能", status: "维护可复用技能" },
   resumes: { title: "简历版本", status: "Markdown 编辑与预览" },
-  applications: { title: "投递清单", status: "后续阶段实现" },
-  settings: { title: "配置", status: "后续阶段实现" },
+  applications: { title: "投递清单", status: "追踪求职进展" },
+  settings: { title: "配置", status: "本地应用设置" },
 };
 
 const emptyExperience: ExperiencePayload = {
@@ -340,7 +342,11 @@ export function App() {
         <section className="workspace-header">
           <div>
             <p className="eyebrow">
-              {activePage === "jobs" || activePage === "resumes" ? "阶段 5" : "阶段 3"}
+              {activePage === "applications" || activePage === "settings"
+                ? "阶段 6"
+                : activePage === "jobs" || activePage === "resumes"
+                  ? "阶段 5"
+                  : "阶段 3"}
             </p>
             <h2>{currentPageMeta.title}</h2>
           </div>
@@ -359,6 +365,10 @@ export function App() {
         {activePage === "resumes" ? (
           <ResumeVersionsPage initialVersionId={pendingResumeVersionId} />
         ) : null}
+
+        {activePage === "applications" ? <ApplicationsPage /> : null}
+
+        {activePage === "settings" ? <SettingsPage /> : null}
 
         {activePage === "profile" ? (
         <section className="profile-workbench">
@@ -635,7 +645,7 @@ export function App() {
           </>
         ) : null}
 
-        {activePage !== "jobs" && activePage !== "profile" && activePage !== "skills" && activePage !== "resumes" ? (
+        {activePage !== "jobs" && activePage !== "profile" && activePage !== "skills" && activePage !== "resumes" && activePage !== "applications" && activePage !== "settings" ? (
           <section className="empty-state">
             <h3>{currentPageMeta.title}还没有开始实现</h3>
             <p>当前阶段先完成画像库和技能管理，后续会继续接入这个模块。</p>
@@ -653,6 +663,10 @@ export function App() {
                 ? "简历 Agent"
               : activePage === "skills"
                 ? "技能 Agent"
+                : activePage === "applications"
+                  ? "投递 Agent"
+                  : activePage === "settings"
+                    ? "配置 Agent"
                 : "画像 Agent"}
           </strong>
         </div>
@@ -667,6 +681,10 @@ export function App() {
             </>
           ) : activePage === "resumes" ? (
             <p>这里只有本版本实际采用的材料，内容由占位服务按事实拼接。</p>
+          ) : activePage === "applications" ? (
+            <p>这里只追踪投递状态，不会自动提交。</p>
+          ) : activePage === "settings" ? (
+            <p>模型设置只在本地保存，不会触发真实模型调用。</p>
           ) : activePage === "skills" ? (
             <>
               <p>

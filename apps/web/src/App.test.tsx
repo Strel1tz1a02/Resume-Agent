@@ -69,6 +69,38 @@ describe("简历版本导航", () => {
   });
 });
 
+describe("阶段 6 导航", () => {
+  it("opens application tracking and settings from the main navigation", async () => {
+    const config = {
+      resume_template: null,
+      preferred_export_formats: ["markdown"],
+      model_provider: null,
+      model_config: {},
+      language_preference: "zh-CN",
+      data_directory: "E:/projects/resume/data",
+      privacy_settings: {},
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/experiences")) return Promise.resolve(mockJsonResponse([]));
+      if (url.endsWith("/applications")) return Promise.resolve(mockJsonResponse([]));
+      if (url.endsWith("/jobs")) return Promise.resolve(mockJsonResponse([]));
+      if (url.endsWith("/resume-versions")) return Promise.resolve(mockJsonResponse([]));
+      if (url.endsWith("/app-config")) return Promise.resolve(mockJsonResponse(config));
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "投递清单" }));
+
+    expect(await screen.findByRole("heading", { name: "投递记录" })).toBeInTheDocument();
+    expect(screen.getByText("这里只追踪投递状态，不会自动提交。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "配置" }));
+    expect(await screen.findByRole("heading", { name: "应用配置" })).toBeInTheDocument();
+    expect(screen.getByText("模型设置只在本地保存，不会触发真实模型调用。")).toBeInTheDocument();
+  });
+});
+
 describe("画像库页面", () => {
   it("loads, selects, creates, and saves experiences", async () => {
     const fetchMock = vi
