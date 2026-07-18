@@ -1,7 +1,8 @@
 from dataclasses import asdict
 from datetime import UTC, datetime
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ from app.schemas.resumes import (
     ResumeVersionRead,
     ResumeVersionUpdate,
 )
+from app.services.markdown_export import build_resume_filename
 from app.services.resume_placeholder import create_resume_markdown
 
 router = APIRouter()
@@ -47,6 +49,18 @@ def _version_for_user(db: Session, version_id: int) -> ResumeVersion:
     if version is None:
         raise HTTPException(status_code=404, detail="Resume version not found")
     return version
+
+
+def _job_for_version(db: Session, version: ResumeVersion) -> JobPosting:
+    job = db.scalar(
+        select(JobPosting).where(
+            JobPosting.id == version.job_posting_id,
+            JobPosting.user_id == DEFAULT_USER_ID,
+        )
+    )
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 def _ordered_materials(
@@ -205,3 +219,19 @@ def update_resume_version(
     db.commit()
     db.refresh(version)
     return _read_version(db, version)
+
+
+@router.post("/resume-versions/{version_id}/export")
+def export_resume_version(
+    version_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    version = _version_for_user(db, version_id)
+    job = _job_for_version(db, version)
+    filename = build_resume_filename(job.company, job.title, version.id)
+    disposition = f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+    return Response(
+        content=version.markdown_content.encode("utf-8"),
+        media_type="text/markdown",
+        headers={"Content-Disposition": disposition},
+    )

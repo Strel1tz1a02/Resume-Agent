@@ -1,5 +1,6 @@
 from app.core.config import DEFAULT_USER_ID
 from inspect import signature
+from urllib.parse import unquote
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -163,6 +164,39 @@ def test_resume_markdown_update_adds_history_without_changing_materials(
     assert history["after_summary"] == "# 人工修改后的简历"
 
 
+def test_export_resume_returns_saved_markdown_as_utf8_attachment(
+    client: TestClient,
+) -> None:
+    job, report, experience, skill = _create_report_with_materials(client)
+    client.put(
+        f"/jobs/{job['id']}",
+        json={"company": "A/B", "title": "后端:工程师"},
+    )
+    version = client.post(
+        f"/match-reports/{report['id']}/resume-versions",
+        json={
+            "used_experience_ids": [experience["id"]],
+            "used_skill_ids": [skill["id"]],
+        },
+    ).json()
+    saved = client.put(
+        f"/resume-versions/{version['id']}",
+        json={"markdown_content": "# 已保存内容\n\n中文简历"},
+    ).json()
+
+    response = client.post(f"/resume-versions/{saved['id']}/export")
+
+    assert response.status_code == 200
+    assert response.content.decode("utf-8") == "# 已保存内容\n\n中文简历"
+    assert response.headers["content-type"].startswith("text/markdown")
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("attachment;")
+    encoded_filename = disposition.split("filename*=UTF-8''", 1)[1]
+    assert unquote(encoded_filename) == (
+        f"A_B_后端_工程师_简历版本{saved['id']}.md"
+    )
+
+
 def test_other_users_resume_resources_are_inaccessible(
     client: TestClient,
     db_session: Session,
@@ -221,5 +255,9 @@ def test_other_users_resume_resources_are_inaccessible(
             f"/resume-versions/{other_version.id}",
             json={"markdown_content": "nope"},
         ).status_code
+        == 404
+    )
+    assert (
+        client.post(f"/resume-versions/{other_version.id}/export").status_code
         == 404
     )
