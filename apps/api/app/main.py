@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.applications import router as applications_router
+from app.routers.config import router as config_router
 from app.routers.jobs import router as jobs_router
 from app.routers.matches import router as matches_router
 from app.routers.profile import router as profile_router
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(profile_router)# 路由可以拆到不同文件，最后在入口注册
 app.include_router(applications_router)
+app.include_router(config_router)
 app.include_router(jobs_router)
 app.include_router(matches_router)
 app.include_router(resumes_router)
